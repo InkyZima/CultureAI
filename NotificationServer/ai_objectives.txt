@@ -1,0 +1,4 @@
+- Don't notify the User more than once per hour.
+- Don't notify the User if there was recent conversation with the User.
+- Don't notify the user past 22 o'clock, as they may be sleeping already.
+- Don't notify the user before 9 o'clock, as they may be still sleeping.

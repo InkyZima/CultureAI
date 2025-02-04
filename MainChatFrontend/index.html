@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat with AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 1240px;  /* 1280px - 40px padding */
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;  /* Allow wrapping */
+            height: calc(100vh - 40px);  /* Full height minus padding */
+        }
+        .main-content {
+            flex: 1;
+            min-width: 500px;  /* Reduced from 600px */
+            max-width: 600px;  /* Reduced from 800px */
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            height: calc(100% - 50px);  /* Subtract header height */
+        }
+        .settings-panel, .tasks-panel {
+            width: 250px;  /* Reduced from 300px */
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+            flex-shrink: 0;
+        }
+        #chat-box {
+            flex-grow: 1;
+            border: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+        }
+        #input-area {
+            display: flex;
+            gap: 10px;
+            padding: 10px 0;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 5px;
+        }
+        #send-button {
+            padding: 5px 15px;
+        }
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        #clear-button, #clear-tasks-button {
+            padding: 5px 15px;
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #clear-button:hover, #clear-tasks-button:hover {
+            background-color: #cc0000;
+        }
+        .tasks-panel h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .tasks-panel ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .tasks-panel li {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        .completed {
+            color: #2e7d32;
+        }
+        .pending {
+            color: #c62828;
+        }
+        /* Toggle switch styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            min-width: 60px;
+            height: 34px;
+            margin: 10px 0;
+            flex-shrink: 0;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .setting-item label {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .setting-item input[type="password"] {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .setting-item button {
+            padding: 8px 16px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .setting-item button:hover {
+            background-color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="settings-panel">
+            <h3>Settings</h3>
+            <div class="setting-item">
+                <label>
+                    Check Interval
+                    <input type="number" id="notification-interval" value="30" min="1" max="120">
+                    minutes
+                </label>
+            </div>
+            <div class="setting-item">
+                <span>Android Notifications</span>
+                <label class="switch">
+                    <input type="checkbox" id="android-notifications" disabled>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <span>PC Notifications</span>
+                <label class="switch">
+                    <input type="checkbox" id="pc-notifications">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <button id="test-decider">Test Notification Decider</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div id="header">
+                <h2>Chat with AI</h2>
+                <div class="header-buttons">
+                    <button id="clear-button">Clear Chat</button>
+                    <button id="clear-tasks-button">Clear Task Tracking</button>
+                </div>
+            </div>
+            <div class="chat-container">
+                <div id="chat-box"></div>
+                <div id="input-area">
+                    <input type="text" id="message-input" placeholder="Type your message...">
+                    <button id="send-button">Send</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tasks-panel">
+            <!-- Content will be loaded dynamically -->
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const clearButton = document.getElementById('clear-button');
+        const clearTasksButton = document.getElementById('clear-tasks-button');
+        let messageCounter = parseInt(localStorage.getItem('messageCounter')) || 0;
+        let notificationWatcherActive = false;
+
+        function getFormattedTime() {
+            const now = new Date();
+            return now.toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit'
+            });
+        }
+
+        async function sendMessage() {
+            sendButton.disabled = true;
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Increment counter and check if it's the 4th message
+            messageCounter++;
+            localStorage.setItem('messageCounter', messageCounter);
+            let finalMessage = message;
+            let frequency = 4;
+            if (messageCounter % frequency === 0) {
+                const systemInstructionResponse = await fetch('http://localhost:8003/get_system_instruction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'user123'
+                    })
+                });
+                const systemInstructionData = await systemInstructionResponse.json();
+                finalMessage += systemInstructionData.content;
+                console.log("injected system instruction: " + systemInstructionData.content);
+            } else if (messageCounter % frequency === (frequency-1)) { // call http://localhost:8003/oversee to have the overseer create the next system instruction. There's nothing to do with the response, but if it fails, print an error message.
+                const overseerResponse = await fetch('http://localhost:8003/oversee', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'user123'
+                    })
+                });
+                if (overseerResponse.ok) {
+                } else {
+                    console.error("Error: " + overseerResponse.statusText);
+                }
+            }
+            // Display user message (original message without system instruction)
+            const userTime = getFormattedTime();
+            appendMessage('User', message, userTime);
+            messageInput.value = '';
+            
+            try {
+                console.log("calling /chat from sendMessage")
+                // Send to chat backend with potentially modified message
+                const chatResponse = await fetch('http://localhost:8001/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'user123',
+                        content: finalMessage
+                    })
+                });
+                
+                const chatData = await chatResponse.json();
+                sendButton.disabled = false;
+                
+                // Display AI response
+                const aiTime = getFormattedTime();
+                appendMessage('AI', chatData.content, aiTime);
+
+                // Update tasks directly with the message
+                const taskResponse = await fetch('http://localhost:8002/update_tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'user123',
+                        content: message
+                    })
+                });
+
+                const taskData = await taskResponse.json();
+                updateTasksPanelWithData(taskData.content);
+
+            } catch (error) {
+                console.error('Error:', error);
+                appendMessage('System', 'Error sending message');
+            }
+        }
+
+        function updateTasksPanelWithData(taskStatus) {
+            const tasksPanel = document.querySelector('.tasks-panel');
+            
+            if (taskStatus) {
+                try {
+                    const data = JSON.parse(taskStatus);
+                    let formattedHtml = '<h3>Tasks</h3><ul>';
+                    
+                    // Create single list with checkmarks/X marks using HTML entities
+                    for (const task of data.tasks) {
+                        const symbol = task.completed === 1 ? '&check;' : '&times;';
+                        const style = task.completed === 1 ? 'color: #2e7d32' : 'color: #c62828';
+                        formattedHtml += `<li style="${style}; list-style-type: none">${symbol} ${task.task}</li>`;
+                    }
+                    formattedHtml += '</ul>';
+                    
+                    tasksPanel.innerHTML = formattedHtml;
+                } catch (error) {
+                    console.error('Error parsing task status:', error);
+                    tasksPanel.innerHTML = '<p>Error displaying tasks</p>';
+                }
+            } else {
+                tasksPanel.innerHTML = '';
+            }
+        }
+
+        // Initial load of tasks
+        async function loadInitialTasks() {
+            try {
+                const response = await fetch('http://localhost:8002/get_task_status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'user123',
+                        limit_to_today: true
+                    })
+                });
+
+                const data = await response.json();
+                updateTasksPanelWithData(data.content);
+            } catch (error) {
+                console.error('Error loading initial tasks:', error);
+            }
+        }
+
+        // Load tasks on page load
+        window.addEventListener('load', loadInitialTasks);
+
+        async function loadChatHistory() {
+            try {
+                const response = await fetch('http://localhost:8001/chat_history', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: 'user123',
+                        limit: 50,
+                        limit_to_today: true
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Clear existing messages
+                chatBox.innerHTML = '';
+                
+                // Display each message
+                for (const msg of data.messages) {
+                    const time = new Date(msg.timestamp).toLocaleTimeString('en-US', { 
+                        hour12: false, 
+                        hour: '2-digit', 
+                        minute: '2-digit'
+                    });
+                    const party = msg.party === 'user' ? 'User' : 'AI';
+                    const style = msg.party === 'user' ? 'style="color: blue"' : '';
+                    appendMessage(party, msg.content, time);
+                }
+                
+                // Scroll to bottom
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+                appendMessage('System', 'Error loading chat history');
+            }
+        }
+
+        async function clearHistory() {
+            try {
+                const response = await fetch('http://localhost:8001/clear_history', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: 'user123'
+                    })
+                });
+
+                if (response.ok) {
+                    chatBox.innerHTML = '';
+                    console.log('Chat history cleared');
+                } else {
+                    throw new Error('Failed to clear history');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                appendMessage('System', 'Error clearing chat history');
+            }
+        }
+
+        async function clearTasks() {
+            try {
+                const response = await fetch('http://localhost:8002/clear_tasks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: 'user123'
+                    })
+                });
+
+                if (response.ok) {
+                    // Clear tasks panel
+                    document.querySelector('.tasks-panel').innerHTML = ''; 
+                    appendMessage('System', 'Task tracking data cleared');
+                    // Load fresh list of tasks
+                    loadInitialTasks();
+                } else {
+                    throw new Error('Failed to clear tasks');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                appendMessage('System', 'Error clearing task tracking data');
+            }
+        }
+
+        // Load chat history when page loads
+        window.addEventListener('load', loadChatHistory);
+
+        // Send button click
+        sendButton.addEventListener('click', sendMessage);
+
+        // Ctrl+Enter handler
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Add clear button click handler
+        clearButton.addEventListener('click', clearHistory);
+
+        // Add clear tasks button click handler
+        clearTasksButton.addEventListener('click', clearTasks);
+
+        // Setup notification watcher
+        async function setupNotificationWatcher() {
+            if (notificationWatcherActive) return;  // Don't setup if already active
+            
+            try {
+                // Request notification permission if needed
+                if (Notification.permission !== "granted") {
+                    const permission = await Notification.requestPermission();
+                    if (permission !== "granted") {
+                        throw new Error("Notification permission denied");
+                    }
+                }
+                
+                const response = await fetch('http://localhost:8004/register_watcher', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'user123'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to register notification watcher');
+                }
+                
+                // Setup Server-Sent Events listener
+                const eventSource = new EventSource('http://localhost:8004/notifications/user123');
+                eventSource.onmessage = async (event) => {
+                    console.log(event.data);
+                    const notification = JSON.parse(event.data);
+                    
+                    // Show browser notification if PC notifications are enabled
+                    if (pcToggle.checked) {
+                        new Notification(notification.title, {
+                            body: "You have a new notification from the AI Assistant.",
+                            icon: '/path/to/icon.png'  // Optional: Add an icon
+                        });
+                    }
+
+                    // Send to chat backend as system instruction
+                    try {
+                        const chatResponse = await fetch('http://localhost:8001/chat', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                user_id: 'user123',
+                                content: `[System instruction: ${notification.body}]`
+                            })
+                        });
+                        
+                        const chatData = await chatResponse.json();
+                        
+                        // Display AI response
+                        const newAiTime = getFormattedTime();
+                        appendMessage('AI', chatData.content, newAiTime);
+                    } catch (error) {
+                        console.error('Error sending notification to chat:', error);
+                    }
+                };
+                
+                notificationWatcherActive = true;
+            } catch (error) {
+                console.error('Error setting up notification watcher:', error);
+            }
+        }
+        
+        // Add settings functionality
+        const androidToggle = document.getElementById('android-notifications');
+        const pcToggle = document.getElementById('pc-notifications');
+        
+        // Save settings when changed
+        androidToggle.addEventListener('change', async (e) => {
+            localStorage.setItem('androidNotifications', e.target.checked);
+            const interval = parseInt(document.getElementById('notification-interval').value) || 30;
+            
+            try {
+                const response = await fetch('http://localhost:8004/set_android_notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'user123',
+                        enabled: e.target.checked,
+                        interval: interval
+                    })
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to update Android notification settings');
+                }
+                if (e.target.checked || pcToggle.checked) {  // Setup watcher if either is enabled
+                    setupNotificationWatcher();
+                }
+            } catch (error) {
+                console.error('Error updating Android notifications:', error);
+                e.target.checked = !e.target.checked;
+                localStorage.setItem('androidNotifications', e.target.checked);
+            }
+        });
+        
+        pcToggle.addEventListener('change', async (e) => {
+            localStorage.setItem('pcNotifications', e.target.checked);
+            const interval = parseInt(document.getElementById('notification-interval').value) || 30;
+            
+            try {
+                // Request notification permission if needed
+                if (e.target.checked && Notification.permission !== "granted") {
+                    const permission = await Notification.requestPermission();
+                    if (permission !== "granted") {
+                        throw new Error("Notification permission denied");
+                    }
+                }
+
+                const response = await fetch('http://localhost:8004/set_pc_notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'user123',
+                        enabled: e.target.checked,
+                        interval: interval
+                    })
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to update PC notification settings');
+                }
+                
+                // Show test notification if enabled
+                if (e.target.checked) {
+                    new Notification("Notifications Enabled", {
+                        body: `You will now receive AI Assistant notifications at most every ${interval} minutes.`,
+                        icon: '/path/to/icon.png'  // Optional: Add an icon
+                    });
+                    setupNotificationWatcher();
+                }
+            } catch (error) {
+                console.error('Error updating PC notifications:', error);
+                e.target.checked = !e.target.checked;
+                localStorage.setItem('pcNotifications', e.target.checked);
+            }
+        });
+
+        // Add test button functionality
+        document.getElementById('test-decider').addEventListener('click', async () => {
+            try {
+                const response = await fetch('http://localhost:8004/notification_decider', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'user123'
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Notification decider response:', data);
+                
+                // Add system message to chat about the test
+                const time = getFormattedTime();
+                appendMessage('System', `Tested notification decider - ${data.decision}: ${data.message}`);
+            } catch (error) {
+                console.error('Error testing notification decider:', error);
+                appendMessage('System', 'Error testing notification decider');
+            }
+        });
+
+        function appendMessage(party, content, time = getFormattedTime()) {
+            const style = party === 'User' ? 'style="color: blue"' : '';
+            const newline = party === 'user' ? '' : '\n\n';
+            let displayContent = content;
+            if (party === 'User') {
+                const systemInstructionMatch = content.match(/\[System instruction:.*?\]/);
+                if (systemInstructionMatch) {
+                    displayContent = content.replace(systemInstructionMatch[0], '').trim();
+                }
+            }
+            chatBox.innerHTML += `<span ${style}>[${time}] ${party}: ${displayContent}</span>${newline}`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+Extractor is going to receive user prompts via its POST endpoint. Extractor is then going to query an LLM with the task/system prompt to extract relevant information from the user prompt. What constitutes as relevant information will be described in the system prompt as well, and will be taken from a file called "objectives".
+Extractor will then write this JSON data to a local sqlite database "extracted_info.db"

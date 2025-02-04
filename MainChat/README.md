@@ -1,0 +1,2 @@
+The MainChat python service is going to run locally on port 8001 and receive POST requests for sending a user message, along with a chat history and system prompt, to an LLM. The LLM is going to return an answer to MainChat and MainChat is going to respond with this to the POST request as well as save everything to an sqlite database.
+The LLM used shall be Google gemini-2.0-flash-exp. The module used to talk to the LLM shall be google.generativeai.

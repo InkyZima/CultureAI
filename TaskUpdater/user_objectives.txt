@@ -1,0 +1,14 @@
+{
+  "objectives": 
+  [
+    "Complete morning meditation (at least 5 minutes)",
+    "Complete morning physical exercise (at least 5 minutes)", 
+    "Complete morning cultural recital",
+    "Complete morning vision recital",
+    "Complete day planning in the morning",
+    "Complete midday meditation (at least 5 minutes)",
+    "Complete midday physical exercise (at least 5 minutes)", 
+    "Complete evening meditation (at least 5 minutes)",
+    "Before going to sleep: Review the day, what has been done well and what not well / what could be done better the next day"
+  ]
+}
