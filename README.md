@@ -9,7 +9,7 @@ CultureAI is a purpose-build LLM chat application for cultural AI-companions. Yo
 
 ## v0.1 prototype: Installation and usage
 - Clone the repo
-- Put your GOOGLE_API_KEY into .env. Get your (free) GOOGLE_API_KEY from https://aistudio.google.com/
+- Rename .env.example and put your real GOOGLE_API_KEY into it. Get your (free) GOOGLE_API_KEY from https://aistudio.google.com/
 - python main.py
 - The frontend should now run at http://localhost:8000/
 
