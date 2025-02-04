@@ -38,10 +38,15 @@ init_db()
 # the achievements are stored in the database ../Extractor/extracted_info.db. Only the newest entry is relevant.
 def get_current_user_achievements(user_id):
     """Get current user achievements from database"""
-    #connect to ../Extractor/extracted_info.db
     conn = sqlite3.connect('../TaskUpdater/database/tasks.db')
     cursor = conn.execute('SELECT task_status FROM task_updates WHERE user_id = ? ORDER BY timestamp DESC LIMIT 1', (user_id,))
-    return cursor.fetchone()[0]
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result is None:
+        return "No tasks have been recorded yet. The user is just getting started."
+    
+    return result[0]
 
 
 

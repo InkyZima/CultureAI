@@ -37,8 +37,8 @@ app.add_middleware(
 current_dir = Path(__file__).parent
 
 # Initialize Firebase Admin SDK with correct path
-cred = credentials.Certificate(str(current_dir / "universalpush-73f31-firebase-adminsdk-fbsvc-e209f7537b.json"))
-firebase_admin.initialize_app(cred)
+# cred = credentials.Certificate(str(current_dir / "universalpush-73f31-firebase-adminsdk-fbsvc-e209f7537b.json"))
+# firebase_admin.initialize_app(cred)
 
 # Pydantic models for request validation
 class NotificationRequest(BaseModel):
@@ -58,7 +58,8 @@ def init_db():
     conn.execute('''
         CREATE TABLE IF NOT EXISTS notification_settings (
             user_id TEXT PRIMARY KEY,
-            android_enabled INTEGER DEFAULT 0
+            android_enabled INTEGER DEFAULT 0,
+            pc_enabled INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
