@@ -36,11 +36,10 @@ user_objectives (/tasks) are objectives which the user should achieve.
 ai_objectives are objectives which the LLM should achieve.
 
 TODOs:
-migrate GOOGLE_API_KEY= from all services to the main .env
 fix day breaks across the board. everything should have only current day active by default.
 MD instead of pure html chat window
 ONE database.
-remove all secrets. text field (and instructions) in the front-end for google ai api key.
+text field (and instructions) in the front-end for google ai api key.
 update this README to reflect reality (e.g. the orchestration being the frontend). Note that the backend services are not independent; their only dependence is the db / tables.
 abstract the provider away and implement and test ollama.
 Fix negative objectives.
