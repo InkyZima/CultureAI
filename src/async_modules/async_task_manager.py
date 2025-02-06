@@ -16,10 +16,13 @@ class AsyncTaskManager:
     
     async def _worker(self):
         """Process tasks from the queue"""
+        print("Worker started and waiting for tasks...")
         while True:
             task = await self.task_queue.get()
+            print(f"Worker received task: {task['type']}")
             try:
                 if task["type"] == "process_chat":
+                    print("Converting messages to chat history...")
                     # Convert LangChain messages to dict format for extractor
                     chat_history = []
                     for msg in task["chat_history"]:
@@ -30,6 +33,7 @@ class AsyncTaskManager:
                                 "content": msg.content
                             })
                     
+                    print(f"Processing {len(chat_history)} messages...")
                     await self._process_chat_history(chat_history)
             except Exception as e:
                 print(f"Error processing task: {str(e)}")
@@ -40,10 +44,17 @@ class AsyncTaskManager:
     
     async def _process_chat_history(self, chat_history: list):
         """Process chat history through the async modules"""
-        print("\nProcessing chat history:", chat_history)  # Debug print
+        # Print just the last few messages for debugging
+        print("\nProcessing recent messages:")
+        for msg in chat_history[-3:]:  # Show last 3 messages
+            print(f"- {msg['role']}: {msg['content'][:50]}...")  # Truncate long messages
+        
         # Extract information first
         extracted_info = await self.info_extractor.process(chat_history)
-        print("\nExtracted info:", extracted_info)  # Debug print
+        print("\nExtracted info:")
+        for category, items in extracted_info.items():
+            if items:  # Only show non-empty categories
+                print(f"- {category}:", items)
         
         # Then analyze conversation using extracted info
         analysis = await self.conv_analyzer.process(chat_history, extracted_info)
@@ -53,5 +64,5 @@ class AsyncTaskManager:
     
     async def add_task(self, task_type: str, **kwargs):
         """Add a task to the queue"""
-        print(f"Adding task: {task_type} with kwargs: {kwargs}")
+        print(f"\nAdding task: {task_type}")
         await self.task_queue.put({"type": task_type, **kwargs}) 

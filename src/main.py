@@ -4,7 +4,9 @@ import asyncio
 
 async def create_app():
     chat_core = MainChatCore()
+    print("Calling initialize()...")
     await chat_core.initialize()
+    print("Initialize completed")
     
     async def user_message(message, history):
         # Process user message through MainChatCore

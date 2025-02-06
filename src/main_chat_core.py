@@ -51,7 +51,9 @@ Remember to maintain a supportive and engaging tone while being accurate in your
 
     async def initialize(self):
         """Async initialization method"""
+        print("Initializing AsyncTaskManager...")
         await self.task_manager.start()
+        print("AsyncTaskManager initialized")
 
     def init_database(self):
         """Initialize SQLite database and create tables if they don't exist."""
