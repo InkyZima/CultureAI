@@ -139,4 +139,4 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## License
 
-[Add your chosen license here]
+[CC BY-NC 4.0]
