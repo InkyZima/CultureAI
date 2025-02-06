@@ -33,6 +33,9 @@ build/
 # Model files (if needed later)
 models/
 
+# Data files
+data/
+
 # OS
 .DS_Store
 Thumbs.db 

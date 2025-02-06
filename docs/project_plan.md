@@ -31,7 +31,7 @@ The project will be divided into the following phases:
 *   **Aspects to Consider:**
     *   **Development Environment Setup:** Python virtual environment setup. Install necessary libraries including Gradio, LangChain, and LLM libraries.
     *   **UI Framework Implementation (Gradio):** Set up Gradio for the user interface, leveraging its chat-specific components for input and message display. Design the basic chat interface.
-    *   **Main Chat Core Structure:** Implement the basic class/module for `MainChatCore`, handling chat history (in-memory list for now).
+    *   **Main Chat Core Structure:** Implement the basic class/module for `MainChatCore`, handling chat history using SQLite for persistence.
     *   **Main Chat LLM Integration (LangChain):** Choose a suitable Main Chat LLM and integrate it into the `MainChatCore` using LangChain for managing LLM interactions. Focus on basic text in/text out.
     *   **Basic Chat Flow Implementation:** Implement the flow: User input -> `MainChatCore` -> `MainChatLLM` (via LangChain) -> `MainChatCore` -> UI display (Gradio).
 *   **To-Do List (Phase 1):**
@@ -41,22 +41,25 @@ The project will be divided into the following phases:
     4.  **Create `MainChatCore` class/module (initial structure).**
     5.  **Select and download a suitable Main Chat LLM model.**
     6.  **Integrate Main Chat LLM with `MainChatCore` using LangChain for interaction.**
-    7.  **Implement basic chat message flow (user -> AI -> display) using Gradio and LangChain.**
-    8.  **Basic testing of core chat functionality.**
+    7.  **Implement SQLite database for chat history persistence.**
+    8.  **Implement basic chat message flow (user -> AI -> display) using Gradio and LangChain.**
+    9.  **Basic testing of core chat functionality.**
 *   **Deliverables (Phase 1):**
     *   Functional basic chat application with Gradio UI and Main Chat LLM integration via LangChain.
     *   Basic `MainChatCore` class/module structure.
+    *   SQLite database implementation for persistent chat history.
     *   Codebase with basic chat functionality.
     *   Phase 1 completed and tested.
-*   **Technology/Tools (Phase 1):** Python, Virtual Environment, Gradio, LangChain, chosen Main Chat LLM model.
+    *   **Technology/Tools (Phase 1):** Python, Virtual Environment, Gradio, LangChain, SQLite, chosen Main Chat LLM model.
 
 **Phase 2: Async Task Modules - Information Extraction & Conversation Analysis**
 
 *   **Objective:** Implement the first two Async Task Modules: Information Extractor and Conversation Analyzer, and the Async Task Manager to orchestrate them using `asyncio`.
 *   **Aspects to Consider:**
+    *   **Database Integration:** Leverage existing SQLite database for efficient querying of chat history by Information Extractor and Conversation Analyzer modules.
     *   **Async Task Manager Implementation:**  Create `AsyncTaskManager` class/module, implement task queue using `asyncio.Queue` and worker logic using `asyncio`.
-    *   **Information Extractor Module (LangChain):** Design and implement `InformationExtractor` module. Choose a suitable smaller LLM and integrate it using LangChain. Implement logic to extract relevant information from `Chat History`.
-    *   **Conversation Analyzer Module (LangChain):** Design and implement `ConversationAnalyzer` module. Choose a suitable smaller LLM and integrate it using LangChain. Implement logic to analyze conversation (using `Chat History` and output from `InformationExtractor`).
+    *   **Information Extractor Module (LangChain):** Design and implement `InformationExtractor` module. Choose a suitable smaller LLM and integrate it using LangChain. Implement logic to extract relevant information from chat history using SQLite queries.
+    *   **Conversation Analyzer Module (LangChain):** Design and implement `ConversationAnalyzer` module. Choose a suitable smaller LLM and integrate it using LangChain. Implement logic to analyze conversation (using SQLite queries and output from `InformationExtractor`).
     *   **Data Passing between Modules:** Ensure proper data flow from `InformationExtractor` to `ConversationAnalyzer` within the `AsyncTaskManager`.
     *   **Triggering Async Tasks (User Message):** Implement the mechanism in `MainChatCore` to add "process chat history" jobs to the Async Task Queue after each user message.
 *   **To-Do List (Phase 2):**
