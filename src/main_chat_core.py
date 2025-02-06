@@ -1,8 +1,10 @@
 import os
 import sqlite3
+import asyncio
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.schema import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from src.async_modules.async_task_manager import AsyncTaskManager
 
 class MainChatCore:
     def __init__(self):
@@ -19,6 +21,7 @@ class MainChatCore:
 6. Encourage cultural learning and cross-cultural understanding
 
 Remember to maintain a supportive and engaging tone while being accurate in your cultural knowledge."""
+        self.chat_history = [SystemMessage(content=self.system_prompt)]
 
         # Create data directory if it doesn't exist
         os.makedirs('data', exist_ok=True)
@@ -26,16 +29,30 @@ Remember to maintain a supportive and engaging tone while being accurate in your
         
         # Initialize database and load chat history
         self.init_database()
-        self.chat_history = self.load_chat_history()
+        stored_history = self.load_chat_history()
+        
+        # Add stored messages to chat history
+        for msg in stored_history:
+            if msg['role'] == 'human':
+                self.chat_history.append(HumanMessage(content=msg['content']))
+            elif msg['role'] == 'ai':
+                self.chat_history.append(AIMessage(content=msg['content']))
+        
+        # Initialize async task manager
+        self.task_manager = AsyncTaskManager()
         
         # Initialize Gemini through LangChain
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-pro",
+            model="gemini-2.0-flash",
             google_api_key=os.getenv("GOOGLE_API_KEY"),
             temperature=0.7,
             convert_system_message_to_human=True
         )
-    
+
+    async def initialize(self):
+        """Async initialization method"""
+        await self.task_manager.start()
+
     def init_database(self):
         """Initialize SQLite database and create tables if they don't exist."""
         with sqlite3.connect(self.db_path) as conn:
@@ -71,25 +88,26 @@ Remember to maintain a supportive and engaging tone while being accurate in your
                          (role, content))
             conn.commit()
         
-    def process_message(self, message):
-        # Add user message to chat history and database
-        self.chat_history.append({"role": "user", "content": message})
-        self.save_message("user", message)
-        
-        # Convert chat history to LangChain message format
-        langchain_messages = [SystemMessage(content=self.system_prompt)]  # Always include system prompt
-        for msg in self.chat_history[1:]:  # Skip the stored system message when converting
-            if msg["role"] == "user":
-                langchain_messages.append(HumanMessage(content=msg["content"]))
-            elif msg["role"] == "assistant":
-                langchain_messages.append(AIMessage(content=msg["content"]))
+    async def process_message(self, message: str) -> str:
+        """Process a message and return the response"""
+        # Add message to chat history
+        self.chat_history.append(HumanMessage(content=message))
         
         # Get response from LLM
-        response = self.llm.invoke(langchain_messages)
-        response_text = response.content
+        response = await self.llm.agenerate([self.chat_history])
+        ai_message = response.generations[0][0].text
         
-        # Add AI response to chat history and database
-        self.chat_history.append({"role": "assistant", "content": response_text})
-        self.save_message("assistant", response_text)
+        # Add response to chat history
+        self.chat_history.append(AIMessage(content=ai_message))
         
-        return response_text 
+        # Save to database
+        self.save_message("human", message)
+        self.save_message("ai", ai_message)
+        
+        # Add task to async manager - passing as a single task object
+        await self.task_manager.add_task(
+            "process_chat",
+            chat_history=self.chat_history
+        )
+        
+        return ai_message 

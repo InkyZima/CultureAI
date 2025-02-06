@@ -1,12 +1,14 @@
 import gradio as gr
 from src.main_chat_core import MainChatCore
+import asyncio
 
-def create_app():
+async def create_app():
     chat_core = MainChatCore()
+    await chat_core.initialize()
     
-    def user_message(message, history):
+    async def user_message(message, history):
         # Process user message through MainChatCore
-        response = chat_core.process_message(message)
+        response = await chat_core.process_message(message)
         return response
     
     # Create Gradio chat interface
@@ -20,5 +22,7 @@ def create_app():
     return chat_interface
 
 if __name__ == "__main__":
-    app = create_app()
+    # Create and run the app in the event loop
+    app = asyncio.run(create_app())
+    # Now app is the actual chat interface, not a coroutine
     app.launch() 
