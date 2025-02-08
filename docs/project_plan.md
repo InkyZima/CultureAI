@@ -59,7 +59,13 @@ The project will be divided into the following phases:
     *   **Database Integration:**  Leveraged existing SQLite database for efficient querying of chat history by Information Extractor and Conversation Analyzer modules.
     *   **Async Task Manager Implementation:**  Created `AsyncTaskManager` class/module, implemented task queue using `asyncio.Queue` and worker logic using `asyncio`.
     *   **Information Extractor Module (LangChain):**  Designed and implemented `InformationExtractor` module with Gemini-2.0-flash LLM integration using LangChain. Implemented logic to extract and persist relevant information from chat history.
-    *   **Conversation Analyzer Module (LangChain):**  Designed and implemented `ConversationAnalyzer` module with Gemini-2.0-flash LLM integration using LangChain. Implemented logic to analyze conversations and store results.
+    *   **Conversation Analyzer Module (LangChain):**  Designed and implemented `ConversationAnalyzer` module with Gemini-2.0-flash LLM integration using LangChain. Implemented logic to analyze conversations.
+    *   **System Prompts Management:** Implemented a professional system for managing LLM prompts:
+        * Created YAML-based configuration files for default prompts
+        * Added SQLite table for storing user-customized prompts
+        * Implemented PromptManager class for centralized prompt management
+        * Added UI settings for viewing and editing prompts
+        * Ensured real-time prompt updates across all modules
 *   **To-Do List (Phase 2):**
     1.  **Create `AsyncTaskManager` class/module (task queue using `asyncio.Queue`, worker using `asyncio`).**
     2.  **Implement `InformationExtractor` module (choose LLM, extraction logic) using LangChain.**
@@ -67,11 +73,13 @@ The project will be divided into the following phases:
     4.  **Implement data passing between `InformationExtractor` and `ConversationAnalyzer` in `AsyncTaskManager`.**
     5.  **Modify `MainChatCore` to trigger async tasks via Async Task Queue after user messages.**
     6.  **Integrate `AsyncTaskManager` with `MainChatCore`.**
-    7.  **Testing of Information Extraction and Conversation Analysis workflows.**
+    7.  **Implement system prompts management (YAML config, SQLite table, PromptManager class, UI settings).**
+    8.  **Testing of Information Extraction and Conversation Analysis workflows.**
 *   **Deliverables (Phase 2):**
     *   Functional AsyncTaskManager with proper task queue management
     *   Information Extractor module with database persistence
     *   Conversation Analyzer module with database persistence
+    *   System prompts management system
     *   Test suite for both modules
     *   Phase 2 completed and tested
 *   **Technology/Tools (Phase 2):** Python, `asyncio`, LangChain, chosen LLMs for Information Extraction and Conversation Analysis.

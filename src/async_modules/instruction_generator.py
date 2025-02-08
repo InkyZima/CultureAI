@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 import json
+from src.prompt_manager import PromptManager
 
 class InstructionGenerator:
     def __init__(self):
@@ -14,6 +15,10 @@ class InstructionGenerator:
         os.makedirs('data', exist_ok=True)
         self.db_path = 'data/chat.db'
         self.init_database()
+        
+        # Initialize prompt manager and get system prompt
+        self.prompt_manager = PromptManager()
+        self.system_prompt = self.prompt_manager.get_prompt('instruction_generator')
         
         # Initialize smaller LLM for instruction generation
         self.llm = ChatGoogleGenerativeAI(
@@ -42,6 +47,9 @@ class InstructionGenerator:
     
     async def process_user_triggered(self, chat_history: List[Dict[str, str]], conversation_analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Process chat history and generate instructions based on user interaction"""
+        # Refresh system prompt before processing
+        self.refresh_system_prompt()
+        
         # Format chat history for LLM
         formatted_history = "\n".join([
             f"{msg['role'].title()}: {msg['content']}"
@@ -164,3 +172,7 @@ Instructions:
                     context_msg_ids
                 ))
             conn.commit()
+    
+    def refresh_system_prompt(self):
+        """Refresh the system prompt"""
+        self.system_prompt = self.prompt_manager.get_prompt('instruction_generator')

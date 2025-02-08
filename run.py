@@ -45,6 +45,11 @@ async def clear_database():
             cursor.execute('DELETE FROM messages WHERE role != "system"')
             # Clear extracted_information table
             cursor.execute('DELETE FROM extracted_information')
+            # Clear conversation_analysis table
+            cursor.execute('DELETE FROM conversation_analysis')
+            # Clear generated_instructions table
+            cursor.execute('DELETE FROM generated_instructions')
+            
             conn.commit()
             print("Database tables cleared successfully")
 

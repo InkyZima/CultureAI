@@ -4,19 +4,24 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 import os
 from dotenv import load_dotenv
 from langchain_core.messages import SystemMessage, HumanMessage
+from src.prompt_manager import PromptManager
 
 class InformationExtractor:
     def __init__(self):
         load_dotenv()
+        
+        # Initialize prompt manager and get system prompt
+        self.prompt_manager = PromptManager()
+        self.system_prompt = self.prompt_manager.get_prompt('information_extractor')
         
         # Initialize database connection
         os.makedirs('data', exist_ok=True)
         self.db_path = 'data/chat.db'
         self.init_database()
         
-        # Initialize smaller LLM for information extraction
+        # Initialize LLM
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",  # Faster model for information extraction
+            model="gemini-2.0-flash",
             google_api_key=os.getenv("GOOGLE_API_KEY"),
             temperature=0.3  # Lower temperature for more focused extraction
         )
@@ -42,37 +47,11 @@ class InformationExtractor:
         context = self._prepare_context(chat_history)
         
         # Create extraction prompt using proper chat message format
-        system_prompt = """You are an information extraction assistant. Extract key information from conversations and format it exactly as shown in the example below.
-
-Example format:
-Cultural Topics:
-- Japanese culture
-- Rock music
-
-User Interests:
-- Playing guitar
-- Hard rock music
-
-Questions:
-- "What time is the concert?"
-- "Where can I learn more about Japanese culture?"
-
-Personal Information:
-- Name: John
-- Likes: Rock music, Guitar
-- Location: Tokyo
-
-Commitments:
-- Going to concert next week
-- Planning to take guitar lessons
-
-Provide the information in exactly the same format as the example above, including all sections even if empty."""
-
         user_prompt = f"Please analyze this conversation:\n{context}"
         
         # Get extraction from LLM using chat messages format
         messages = [
-            SystemMessage(content=system_prompt),
+            SystemMessage(content=self.system_prompt),
             HumanMessage(content=user_prompt)
         ]
         
@@ -147,3 +126,36 @@ Provide the information in exactly the same format as the example above, includi
             for msg in recent_messages
         ])
         return context 
+    
+    def refresh_system_prompt(self):
+        """Refresh the system prompt"""
+        self.system_prompt = self.prompt_manager.get_prompt('information_extractor')
+    
+    async def process_chat_history(self, chat_history: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Process chat history and extract information"""
+        # Refresh system prompt before processing
+        self.refresh_system_prompt()
+        
+        # Prepare conversation context
+        context = self._prepare_context(chat_history)
+        
+        # Create extraction prompt using proper chat message format
+        user_prompt = f"Please analyze this conversation:\n{context}"
+        
+        # Get extraction from LLM using chat messages format
+        messages = [
+            SystemMessage(content=self.system_prompt),
+            HumanMessage(content=user_prompt)
+        ]
+        
+        response = await self.llm.agenerate([messages])
+        ai_response = response.generations[0][0].text
+        
+        # Parse the response into structured format
+        extracted_info = self._parse_llm_response(ai_response)
+        
+        # Save extracted information to database
+        self._save_to_database(extracted_info, chat_history[-5:])  # Save with reference to recent messages
+        
+        print("Extracted Info:", extracted_info)  # For debugging
+        return extracted_info
