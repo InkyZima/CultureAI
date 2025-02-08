@@ -1,0 +1,14 @@
+description: "Time context prompts for different times of day"
+default:
+  greetings:
+    early_morning: "Good early morning"
+    morning: "Good morning"
+    afternoon: "Good afternoon"
+    evening: "Good evening"
+    night: "Good night"
+  context_prompts:
+    early_morning: "It's early morning, a time for starting the day mindfully. Consider morning routines, meditation, or light exercise."
+    morning: "It's morning time, ideal for productivity and important tasks. Consider breakfast, daily planning, and engaging activities."
+    afternoon: "It's afternoon, a time for maintaining momentum and taking breaks. Consider lunch, work progress, and staying energized."
+    evening: "It's evening, time to wind down and reflect. Consider dinner, daily review, and relaxation activities."
+    night: "It's nighttime, perfect for rest and preparation. Consider tomorrow's planning, sleep routine, and peaceful activities."

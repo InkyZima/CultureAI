@@ -77,7 +77,6 @@ async def create_app():
             with gr.Tab("Chat"):
                 chat_interface = gr.ChatInterface(
                     user_message,
-                    description="Your AI companion for cultural guidance and conversation.",
                     fill_height=True,
                     chatbot=gr.Chatbot(elem_id="chatbot"),
                 )

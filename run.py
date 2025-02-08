@@ -41,14 +41,16 @@ async def clear_database():
     if os.path.exists(db_path):
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            # Clear messages table except system prompt
-            cursor.execute('DELETE FROM messages WHERE role != "system"')
+            # Clear messages table
+            cursor.execute('DELETE FROM messages')
             # Clear extracted_information table
             cursor.execute('DELETE FROM extracted_information')
             # Clear conversation_analysis table
             cursor.execute('DELETE FROM conversation_analysis')
             # Clear generated_instructions table
             cursor.execute('DELETE FROM generated_instructions')
+            # Clear system_prompts table
+            cursor.execute('DELETE FROM system_prompts')
             
             conn.commit()
             print("Database tables cleared successfully")
