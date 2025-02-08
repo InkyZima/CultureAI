@@ -1,11 +1,13 @@
 import os
 import sqlite3
 import asyncio
+from datetime import datetime
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from src.async_modules.async_task_manager import AsyncTaskManager
 from src.prompt_manager import PromptManager
+from src.time_context_manager import TimeContextManager
 
 class MainChatCore:
     def __init__(self):
@@ -14,6 +16,9 @@ class MainChatCore:
         
         # Initialize prompt manager
         self.prompt_manager = PromptManager()
+        
+        # Initialize time context manager
+        self.time_context_manager = TimeContextManager()
         
         # Initialize chat history with system prompt
         self.system_prompt = self.prompt_manager.get_prompt('main_chat')
@@ -128,6 +133,15 @@ class MainChatCore:
     def refresh_system_prompt(self):
         """Refresh the system prompt and update chat history"""
         new_prompt = self.prompt_manager.get_prompt('main_chat')
+        
+        # Get current time context
+        current_time = datetime.now()
+        time_context = self.time_context_manager.get_time_context(current_time)
+        
+        # Add time context to the prompt
+        time_context_prompt = self.time_context_manager.get_time_context_prompt(time_context)
+        new_prompt = f"{new_prompt}\n\n{time_context_prompt}"
+        
         if new_prompt != self.system_prompt:
             self.system_prompt = new_prompt
             # Update the system message in chat history
@@ -139,8 +153,12 @@ class MainChatCore:
 
     async def process_message(self, message: str) -> str:
         """Process a message and return the response"""
-        # Refresh system prompt before processing
+        # Refresh system prompt before processing (now includes time context)
         self.refresh_system_prompt()
+        
+        # Get current time context for the greeting
+        current_time = datetime.now()
+        time_context = self.time_context_manager.get_time_context(current_time)
         
         # Add message to chat history
         self.chat_history.append(HumanMessage(content=message))
@@ -150,9 +168,10 @@ class MainChatCore:
         if len(self.chat_history) > 2:  # System prompt + at least one exchange
             instruction = self.get_latest_instruction()
             if instruction:
-                # Append instruction to the last user message
+                # Append instruction to the last user message with time context
+                greeting = self.time_context_manager.get_time_appropriate_greeting(time_context)
                 self.chat_history[-1] = HumanMessage(
-                    content=f"{message}\n[System instruction: {instruction}]"
+                    content=f"{message}\n[System instruction: {greeting}. {instruction}]"
                 )
         
         # Get response from LLM
