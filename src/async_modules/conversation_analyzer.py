@@ -3,6 +3,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 import os
 import sqlite3
 from dotenv import load_dotenv
+from src.prompt_manager import PromptManager
 
 class ConversationAnalyzer:
     def __init__(self):
@@ -19,6 +20,9 @@ class ConversationAnalyzer:
             google_api_key=os.getenv("GOOGLE_API_KEY"),
             temperature=0.4  # Balanced temperature for analysis
         )
+        
+        self.prompt_manager = PromptManager()
+        self.system_prompt = self.prompt_manager.get_prompt('conversation_analyzer')
     
     def init_database(self):
         """Initialize the database table for conversation analysis"""
@@ -43,7 +47,9 @@ class ConversationAnalyzer:
         context = self._prepare_context(chat_history, extracted_info)
         
         # Create analysis prompt
-        prompt = f"""Analyze this conversation and extracted information. Consider:
+        prompt = f"""{self.system_prompt}
+        
+Analyze this conversation and extracted information. Consider:
 1. Conversation quality and engagement level (high/medium/low)
 2. Cultural learning progress - list specific cultural topics or concepts learned
 3. Areas where cultural guidance might be needed - list specific areas
@@ -139,3 +145,7 @@ Extracted Information:
                 analyzed_msgs
             ))
             conn.commit()
+    
+    def refresh_system_prompt(self):
+        """Refresh the system prompt from the PromptManager"""
+        self.system_prompt = self.prompt_manager.get_prompt('conversation_analyzer')

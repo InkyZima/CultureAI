@@ -18,7 +18,7 @@ async def create_app():
     def load_prompt_settings():
         """Load all prompt settings for the UI"""
         modules = prompt_manager.list_modules()
-        return [prompt_manager.get_prompt_info(module) for module in modules]
+        return [prompt_manager.get_prompt_info(module) for module in reversed(modules)]
     
     def save_prompt(module_name: str, new_prompt: str):
         """Save updated prompt and return success message"""
@@ -32,6 +32,8 @@ async def create_app():
                 chat_core.task_manager.instruction_generator.refresh_system_prompt()
             elif module_name == 'information_extractor':
                 chat_core.task_manager.information_extractor.refresh_system_prompt()
+            elif module_name == 'conversation_analyzer':
+                chat_core.task_manager.conversation_analyzer.refresh_system_prompt()
             
             return f"Successfully updated prompt for {module_name}"
         except Exception as e:
@@ -49,14 +51,25 @@ async def create_app():
                 chat_core.task_manager.instruction_generator.refresh_system_prompt()
             elif module_name == 'information_extractor':
                 chat_core.task_manager.information_extractor.refresh_system_prompt()
+            elif module_name == 'conversation_analyzer':
+                chat_core.task_manager.conversation_analyzer.refresh_system_prompt()
             
             return (f"Successfully reset prompt for {module_name}",
                    prompt_manager.get_prompt(module_name))
         except Exception as e:
             return f"Error resetting prompt: {str(e)}", None
     
+
+    css = """
+#chatbot { 
+    flex-grow: 1 !important; 
+    height: calc(100vh - 300px) !important; /* Adjust based on header/footer height */
+    overflow: auto !important; 
+}
+"""
+
     # Create Gradio interface with tabs
-    with gr.Blocks(theme="soft") as interface:
+    with gr.Blocks(css=css, theme="soft", fill_height=True) as interface:
         gr.Markdown("# Cultural AI Companion")
         
         with gr.Tabs():
@@ -64,7 +77,9 @@ async def create_app():
             with gr.Tab("Chat"):
                 chat_interface = gr.ChatInterface(
                     user_message,
-                    description="Your AI companion for cultural guidance and conversation."
+                    description="Your AI companion for cultural guidance and conversation.",
+                    fill_height=True,
+                    chatbot=gr.Chatbot(elem_id="chatbot"),
                 )
             
             # Settings Tab
