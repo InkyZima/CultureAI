@@ -76,7 +76,26 @@ The project will be divided into the following phases:
     *   Phase 2 completed and tested
 *   **Technology/Tools (Phase 2):** Python, `asyncio`, LangChain, chosen LLMs for Information Extraction and Conversation Analysis.
 
-**Phase 3: Async Task Modules - Instruction Generation & Timed Trigger Logic**
+**Phase 3: Instruction Generator Development (In Progress)**
+
+#### Stage 1: User-triggered Logic (Completed)
+- [x] Create basic User-AI interaction test
+- [x] Set up InstructionGenerator module with database schema
+- [x] Implement instruction generation based on user interactions
+- [x] Add tests for instruction parsing and generation
+- [x] Integrate with AsyncTaskManager
+
+#### Stage 2: Timed Trigger Logic (Pending)
+- [ ] Implement periodic instruction generation
+- [ ] Add tests for timed triggers
+- [ ] Configure timing parameters
+- [ ] Handle instruction priority for timed triggers
+
+#### Stage 3: Proactive Message Generation (Pending)
+- [ ] Implement proactive message generation based on instructions
+- [ ] Add tests for message generation
+- [ ] Configure message generation parameters
+- [ ] Handle message priority and timing
 
 *   **Objective:** Implement the Instruction Generator module in stages, starting with user-triggered logic and then expanding to timed triggers. Maintain consistent SQLite persistence pattern established in Phase 2. Implement basic error handling using Loguru and retry mechanism using tenacity in `AsyncTaskManager`.
 *   **Aspects to Consider:**

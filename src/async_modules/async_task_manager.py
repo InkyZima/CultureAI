@@ -2,6 +2,7 @@ import asyncio
 from typing import Dict, Any, Optional
 from .information_extractor import InformationExtractor
 from .conversation_analyzer import ConversationAnalyzer
+from .instruction_generator import InstructionGenerator
 from langchain.schema import HumanMessage, AIMessage
 
 class AsyncTaskManager:
@@ -9,6 +10,7 @@ class AsyncTaskManager:
         self.task_queue = asyncio.Queue()
         self.info_extractor = InformationExtractor()
         self.conv_analyzer = ConversationAnalyzer()
+        self.instr_generator = InstructionGenerator()
         
     async def start(self):
         """Start the task worker"""
@@ -59,8 +61,11 @@ class AsyncTaskManager:
         # Then analyze conversation using extracted info
         analysis = await self.conv_analyzer.process(chat_history, extracted_info)
         
-        # TODO: Generate instructions based on analysis
-        return analysis
+        # Generate instructions based on conversation analysis
+        await self.instr_generator.process_user_triggered(chat_history, analysis)
+        
+        # TODO: Remove this line after instruction generation is implemented
+        # return analysis
     
     async def add_task(self, task_type: str, **kwargs):
         """Add a task to the queue"""
