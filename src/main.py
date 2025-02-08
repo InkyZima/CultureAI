@@ -78,7 +78,8 @@ async def create_app():
                 chat_interface = gr.ChatInterface(
                     user_message,
                     fill_height=True,
-                    chatbot=gr.Chatbot(elem_id="chatbot"),
+                    chatbot=gr.Chatbot(elem_id="chatbot", type="messages"),
+                    type="messages"
                 )
             
             # Settings Tab

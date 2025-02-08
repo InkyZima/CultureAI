@@ -18,6 +18,23 @@ class WindowsSelectorEventLoopPolicy(asyncio.WindowsSelectorEventLoopPolicy):
                 return loop
             raise
 
+def signal_handler(sig, frame):
+    print("\nInitiating graceful shutdown...")
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.stop()
+        tasks = [t for t in asyncio.all_tasks(loop) if t is not asyncio.current_task()]
+        for task in tasks:
+            task.cancel()
+        loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+        loop.close()
+    except Exception as e:
+        print(f"Error during shutdown: {e}")
+    finally:
+        print("Shutdown complete")
+        sys.exit(0)
+
 async def shutdown(app, loop):
     """Perform cleanup of all async resources"""
     print("\nShutting down gracefully...")
@@ -56,6 +73,10 @@ async def clear_database():
             print("Database tables cleared successfully")
 
 async def main():
+    # Register signal handler
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     # Create the app
     app = await create_app()
     
