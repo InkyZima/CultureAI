@@ -18,7 +18,7 @@
 The project will be divided into the following phases:
 
 *   **Phase 1: Project Setup and Core Chat Functionality**
-*   **Phase 2: Async Task Modules - Information Extraction & Conversation Analysis** ✅ (Completed: Feb 6, 2025)
+*   **Phase 2: Async Task Modules - Information Extraction & Conversation Analysis** 
 *   **Phase 3: Async Task Modules - Instruction Generation & Timed Trigger Logic**
 *   **Phase 4: Integration, Proactive Messages & End-to-End Testing**
 *   **Phase 5: Refinement, Optimization & Raspberry Pi Deployment (Optional)**
@@ -52,14 +52,14 @@ The project will be divided into the following phases:
     *   Phase 1 completed and tested.
     *   **Technology/Tools (Phase 1):** Python, Virtual Environment, Gradio, LangChain, SQLite, chosen Main Chat LLM model.
 
-**Phase 2: Async Task Modules - Information Extraction & Conversation Analysis** ✅ (Completed: Feb 6, 2025)
+**Phase 2: Async Task Modules - Information Extraction & Conversation Analysis** 
 
 *   **Objective:** Implement the first two Async Task Modules: Information Extractor and Conversation Analyzer, and the Async Task Manager to orchestrate them using `asyncio`.
 *   **Aspects to Consider:**
-    *   **Database Integration:** ✅ Leveraged existing SQLite database for efficient querying of chat history by Information Extractor and Conversation Analyzer modules.
-    *   **Async Task Manager Implementation:** ✅ Created `AsyncTaskManager` class/module, implemented task queue using `asyncio.Queue` and worker logic using `asyncio`.
-    *   **Information Extractor Module (LangChain):** ✅ Designed and implemented `InformationExtractor` module with Gemini-2.0-flash LLM integration using LangChain. Implemented logic to extract and persist relevant information from chat history.
-    *   **Conversation Analyzer Module (LangChain):** ✅ Designed and implemented `ConversationAnalyzer` module with Gemini-2.0-flash LLM integration using LangChain. Implemented logic to analyze conversations and store results.
+    *   **Database Integration:**  Leveraged existing SQLite database for efficient querying of chat history by Information Extractor and Conversation Analyzer modules.
+    *   **Async Task Manager Implementation:**  Created `AsyncTaskManager` class/module, implemented task queue using `asyncio.Queue` and worker logic using `asyncio`.
+    *   **Information Extractor Module (LangChain):**  Designed and implemented `InformationExtractor` module with Gemini-2.0-flash LLM integration using LangChain. Implemented logic to extract and persist relevant information from chat history.
+    *   **Conversation Analyzer Module (LangChain):**  Designed and implemented `ConversationAnalyzer` module with Gemini-2.0-flash LLM integration using LangChain. Implemented logic to analyze conversations and store results.
 *   **To-Do List (Phase 2):**
     1.  **Create `AsyncTaskManager` class/module (task queue using `asyncio.Queue`, worker using `asyncio`).**
     2.  **Implement `InformationExtractor` module (choose LLM, extraction logic) using LangChain.**
@@ -69,37 +69,51 @@ The project will be divided into the following phases:
     6.  **Integrate `AsyncTaskManager` with `MainChatCore`.**
     7.  **Testing of Information Extraction and Conversation Analysis workflows.**
 *   **Deliverables (Phase 2):**
-    *   ✅ Functional AsyncTaskManager with proper task queue management
-    *   ✅ Information Extractor module with database persistence
-    *   ✅ Conversation Analyzer module with database persistence
-    *   ✅ Test suite for both modules
-    *   ✅ Phase 2 completed and tested
+    *   Functional AsyncTaskManager with proper task queue management
+    *   Information Extractor module with database persistence
+    *   Conversation Analyzer module with database persistence
+    *   Test suite for both modules
+    *   Phase 2 completed and tested
 *   **Technology/Tools (Phase 2):** Python, `asyncio`, LangChain, chosen LLMs for Information Extraction and Conversation Analysis.
 
 **Phase 3: Async Task Modules - Instruction Generation & Timed Trigger Logic**
 
-*   **Objective:** Implement the Instruction Generator module, including both user-triggered and timed trigger logic. Implement basic error handling using Loguru and retry mechanism using tenacity in `AsyncTaskManager`. Integrate AsyncIO for timed tasks.
+*   **Objective:** Implement the Instruction Generator module in stages, starting with user-triggered logic and then expanding to timed triggers. Maintain consistent SQLite persistence pattern established in Phase 2. Implement basic error handling using Loguru and retry mechanism using tenacity in `AsyncTaskManager`.
 *   **Aspects to Consider:**
-    *   **Instruction Generator Module (User-Triggered Logic - LangChain):** Design and implement `InstructionGenerator` module for user message triggered instructions using LangChain. Choose a suitable smaller LLM. Implement logic to generate system instructions based on `ConversationAnalyzer` output.
-    *   **Instruction Generator Module (Timed Trigger Logic - LangChain & AsyncIO):** Implement the "Timed Trigger Logic" within `InstructionGenerator` using LangChain for LLM interaction and AsyncIO for scheduling the timed trigger. Design logic for proactive instruction generation in periods of user inactivity.
-    *   **Timed Trigger Implementation (AsyncIO & MainChatCore):** Implement the 30-minute timer in `MainChatCore` using AsyncIO to trigger "timed trigger jobs" in the `Async Task Queue`. Add the `ProactiveTrigger` class to handle timer resets on user activity.
-    *   **Proactive Message Generation Logic (MainChatCore):** Implement the `ProactiveMsgGen` component in `MainChatCore` to handle system instructions from timed triggers and generate proactive AI messages.
-    *   **Error Handling in Async Task Manager (Loguru & tenacity):** Implement robust error handling in `AsyncTaskManager` using Loguru for logging and tenacity for retry mechanisms for transient errors during LLM calls or task execution. Apply retry policies per-module (e.g., 3 retries for `InformationExtractor`, 5 retries for `ConversationAnalyzer`).
+    *   **Database Persistence Pattern:** Continue using SQLite database for persisting module outputs, following the same pattern established with Information Extraction and Conversation Analysis modules.
+    *   **Basic User-AI Interaction Test:** Implement and maintain a basic test that verifies core User-AI message exchange functionality to catch any regressions.
+    *   **Instruction Generator Module Stage 1 (User-Triggered Logic - LangChain):** Design and implement `InstructionGenerator` module for user message triggered instructions using LangChain. Choose a suitable smaller LLM. Implement logic to generate system instructions based on `ConversationAnalyzer` output.
+    *   **Instruction Generator Module Stage 2 (Timed Trigger Logic - LangChain & AsyncIO):** After Stage 1 is complete and tested, implement the "Timed Trigger Logic" within `InstructionGenerator` using LangChain for LLM interaction and AsyncIO for scheduling the timed trigger.
+    *   **Proactive Message Generation Logic:** To be implemented after user-triggered logic is stable, as this functionality depends on the timed trigger system.
+    *   **Error Handling in Async Task Manager (Loguru & tenacity):** Implement robust error handling in `AsyncTaskManager` using Loguru for logging and tenacity for retry mechanisms for transient errors during LLM calls or task execution. Apply retry policies per-module.
 *   **To-Do List (Phase 3):**
-    1.  **Implement `InstructionGenerator` module (user-triggered logic, choose LLM, instruction logic based on `ConversationAnalyzer`) using LangChain.**
-    2.  **Implement "Timed Trigger Logic" within `InstructionGenerator` (proactive instruction generation logic) using LangChain and AsyncIO.**
-    3.  **Implement 30-minute timer in `MainChatCore` using AsyncIO and trigger "timed trigger jobs".**
-    4.  **Implement `ProactiveTrigger` class in `MainChatCore` to handle timer resets on user activity.**
-    5.  **Implement `ProactiveMsgGen` component in `MainChatCore` to handle timed trigger instructions and generate proactive messages.**
+    1.  **Create basic User-AI interaction test to verify core message exchange functionality.**
+    2.  **Set up SQLite tables and persistence logic for `InstructionGenerator` output.**
+    3.  **Stage 1: User-Triggered Logic**
+        *   Implement `InstructionGenerator` module with user-triggered logic using LangChain
+        *   Choose and integrate appropriate LLM
+        *   Implement instruction generation based on `ConversationAnalyzer` output
+        *   Test user-triggered instruction generation thoroughly
+    4.  **Stage 2: Timed Trigger Logic (after Stage 1 is complete)**
+        *   Implement 30-minute timer in `MainChatCore` using AsyncIO
+        *   Add timed trigger jobs to `AsyncTaskManager`
+        *   Implement `ProactiveTrigger` class for timer management
+        *   Test timed trigger functionality
+    5.  **Stage 3: Proactive Message Generation (after Stage 2 is complete)**
+        *   Implement `ProactiveMsgGen` component
+        *   Integrate with timed trigger system
+        *   Test proactive message generation
     6.  **Implement error handling in `AsyncTaskManager` using Loguru for logging and tenacity for retry.**
-    7.  **Integrate `InstructionGenerator` with `AsyncTaskManager` and `MainChatCore`.**
-    8.  **Testing of Instruction Generation (user-triggered and timed), and error handling.**
+    7.  **Integration testing of all completed stages.**
 *   **Deliverables (Phase 3):**
-    *   Implemented `InstructionGenerator` module with both user-triggered and timed logic using LangChain and AsyncIO.
-    *   Timed trigger mechanism and proactive message generation using AsyncIO.
-    *   Robust error handling and logging in `AsyncTaskManager` using Loguru and tenacity.
-    *   Phase 3 components integrated and tested.
-*   **Technology/Tools (Phase 3):** Python, `asyncio`, LangChain, Loguru, tenacity, chosen LLM for Instruction Generation.
+    *   Basic User-AI interaction test suite
+    *   SQLite persistence implementation for `InstructionGenerator`
+    *   Stage 1: Working user-triggered instruction generation
+    *   Stage 2: Working timed trigger system
+    *   Stage 3: Working proactive message generation
+    *   Robust error handling and logging
+    *   Integration tests for all components
+*   **Technology/Tools (Phase 3):** Python, `asyncio`, LangChain, Loguru, tenacity, SQLite, chosen LLM for Instruction Generation.
 
 **Phase 4: Integration, Proactive Messages & End-to-End Testing**
 
