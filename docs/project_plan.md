@@ -93,19 +93,12 @@ The project will be divided into the following phases:
 - [x] Add tests for instruction parsing and generation
 - [x] Integrate with AsyncTaskManager
 
-#### Stage 2: Timed Trigger Logic & Time Awareness (Pending)
-- [ ] Implement periodic instruction generation
-- [ ] Add time context management in MainChatCore
-    - [ ] Add TimeContextManager class to handle time-based context
-    - [ ] Integrate current time into chat context
-    - [ ] Add time-aware system prompts configuration
-- [ ] Update InstructionGenerator for time-aware suggestions
-    - [ ] Add time-based suggestion templates
-    - [ ] Implement time-appropriate activity suggestions
-    - [ ] Configure time-sensitive conversation topics
-- [ ] Add tests for timed triggers and time-based suggestions
-- [ ] Configure timing parameters
-- [ ] Handle instruction priority for timed triggers
+#### Stage 2: Time-Aware Instruction Generation (In Progress)
+- [ ] Update MainChatCore for simple time awareness
+    - [ ] Add timestamp to each conversation message
+    - [ ] Pass message timestamps to LLM for context
+    - [ ] Update system prompts for time awareness
+- [ ] Add tests for time-aware instruction generation
 
 #### Stage 3: Proactive Message Generation (Pending)
 - [ ] Implement proactive message generation based on instructions
