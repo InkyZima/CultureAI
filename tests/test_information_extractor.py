@@ -1,7 +1,9 @@
 import asyncio
+import pytest
 from src.async_modules.information_extractor import InformationExtractor
 import sqlite3
 
+@pytest.mark.asyncio
 async def test_extractor():
     # Create sample chat history
     chat_history = [

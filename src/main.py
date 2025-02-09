@@ -6,9 +6,9 @@ import asyncio
 async def create_app():
     chat_core = MainChatCore()
     prompt_manager = PromptManager()
-    print("Calling initialize()...")
+    print("Initializing chat core...")
     await chat_core.initialize()
-    print("Initialize completed")
+    print("Initialization completed")
     
     async def user_message(message, history):
         # Process user message through MainChatCore
@@ -28,12 +28,12 @@ async def create_app():
             # Immediately refresh the prompt in the relevant module
             if module_name == 'main_chat':
                 chat_core.refresh_system_prompt()
-            elif module_name == 'instruction_generator':
-                chat_core.task_manager.instruction_generator.refresh_system_prompt()
-            elif module_name == 'information_extractor':
-                chat_core.task_manager.information_extractor.refresh_system_prompt()
-            elif module_name == 'conversation_analyzer':
-                chat_core.task_manager.conversation_analyzer.refresh_system_prompt()
+            elif module_name == 'instruction_generator' and chat_core.task_manager:
+                chat_core.task_manager.instr_generator.refresh_system_prompt()
+            elif module_name == 'information_extractor' and chat_core.task_manager:
+                chat_core.task_manager.info_extractor.refresh_system_prompt()
+            elif module_name == 'conversation_analyzer' and chat_core.task_manager:
+                chat_core.task_manager.conv_analyzer.refresh_system_prompt()
             
             return f"Successfully updated prompt for {module_name}"
         except Exception as e:
@@ -87,42 +87,22 @@ async def create_app():
                 gr.Markdown("## System Prompts")
                 gr.Markdown("Edit the system prompts used by different components of the AI.")
                 
-                # Create UI elements for each module's prompt
-                for module_info in load_prompt_settings():
-                    with gr.Group():
-                        gr.Markdown(f"### {module_info['module_name'].replace('_', ' ').title()}")
-                        gr.Markdown(module_info['description'])
-                        
-                        prompt_input = gr.TextArea(
-                            value=module_info['custom_prompt'] or module_info['default_prompt'],
-                            label="Current Prompt",
-                            lines=10
-                        )
-                        
-                        with gr.Row():
-                            save_btn = gr.Button("Save Changes", variant="primary")
-                            reset_btn = gr.Button("Reset to Default", variant="secondary")
-                        
-                        status_text = gr.Markdown()
-                        
-                        # Set up event handlers
-                        save_btn.click(
-                            fn=save_prompt,
-                            inputs=[
-                                gr.State(module_info['module_name']),
-                                prompt_input
-                            ],
-                            outputs=status_text
-                        )
-                        
-                        reset_btn.click(
-                            fn=reset_prompt,
-                            inputs=gr.State(module_info['module_name']),
-                            outputs=[status_text, prompt_input]
-                        )
-                        
-                        # Add some spacing between modules
-                        gr.Markdown("---")
+                with gr.Accordion("Prompt Settings", open=False):
+                    for module_info in load_prompt_settings():
+                        with gr.Group():
+                            gr.Markdown(f"### {module_info['module_name']}")
+                            prompt_text = gr.Textbox(
+                                value=module_info['prompt'],
+                                label="Current Prompt",
+                                lines=5
+                            )
+                            save_btn = gr.Button(f"Save {module_info['module_name']} Prompt")
+                            status_text = gr.Textbox(label="Status")
+                            save_btn.click(
+                                save_prompt,
+                                inputs=[gr.Textbox(value=module_info['module_name'], visible=False), prompt_text],
+                                outputs=status_text
+                            )
     
     return interface
 

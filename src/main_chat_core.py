@@ -1,104 +1,76 @@
+"""Main chat core module for handling chat interactions."""
+
 import os
 import sqlite3
-import asyncio
-from datetime import datetime
-from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from src.async_modules.async_task_manager import AsyncTaskManager
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from src.prompt_manager import PromptManager
-from src.time_context_manager import TimeContextManager
+from src.core_initializer import CoreInitializer
 
 class MainChatCore:
+    """Core class for handling chat interactions."""
+    
     def __init__(self):
-        # Load environment variables
-        load_dotenv()
-        
+        """Initialize MainChatCore with necessary components."""
         # Initialize prompt manager
         self.prompt_manager = PromptManager()
         
-        # Initialize time context manager
-        self.time_context_manager = TimeContextManager()
+        # Get initial system prompt
+        system_prompt = self.prompt_manager.get_prompt('main_chat')
         
-        # Initialize chat history with system prompt
-        self.system_prompt = self.prompt_manager.get_prompt('main_chat')
-        self.chat_history = [SystemMessage(content=self.system_prompt)]
+        # Create chat prompt template
+        self.chat_prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}")
+        ])
+        
+        # Initialize chat history
+        self.chat_history = []
 
         # Create data directory if it doesn't exist
         os.makedirs('data', exist_ok=True)
         self.db_path = 'data/chat.db'
         
-        # Initialize database and load chat history
-        self.init_database()
-        stored_history = self.load_chat_history()
+        # Initialize components using CoreInitializer
+        CoreInitializer.init_database(self.db_path)
+        self.chat_history = CoreInitializer.load_chat_history(self.db_path)
         
-        # Add stored messages to chat history
-        for msg in stored_history:
-            if msg['role'] == 'human':
-                self.chat_history.append(HumanMessage(content=msg['content']))
-            elif msg['role'] == 'ai':
-                self.chat_history.append(AIMessage(content=msg['content']))
-        
-        # Initialize async task manager
-        self.task_manager = AsyncTaskManager()
-        
-        # Initialize Gemini through LangChain
-        self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
-            google_api_key=os.getenv("GOOGLE_API_KEY"),
-            temperature=0.7,
-            convert_system_message_to_human=True
-        )
+        # Initialize LLM
+        self.llm = CoreInitializer.init_llm()
+
+        # Task manager will be initialized asynchronously in initialize()
+        self.task_manager = None
 
     async def initialize(self):
-        """Async initialization method"""
-        print("Initializing AsyncTaskManager...")
-        await self.task_manager.start()
-        print("AsyncTaskManager initialized")
+        """Initialize async components."""
+        if self.task_manager is None:
+            self.task_manager = await CoreInitializer.init_task_manager()
 
-    def init_database(self):
-        """Initialize SQLite database and create tables if they don't exist."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS messages (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    role TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS generated_instructions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    instruction TEXT NOT NULL,
-                    priority INTEGER NOT NULL,
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    executed BOOLEAN NOT NULL DEFAULT FALSE,
-                    execution_time DATETIME
-                )
-            ''')
-            
-            # Only insert system prompt if messages table is completely empty
-            cursor.execute('SELECT COUNT(*) FROM messages')
-            if cursor.fetchone()[0] == 0:
-                cursor.execute('INSERT INTO messages (role, content) VALUES (?, ?)',
-                             ("system", self.system_prompt))
-            conn.commit()
-    
-    def load_chat_history(self):
-        """Load chat history from SQLite database."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            # Only load actual messages, skip loading any previous system prompts
-            cursor.execute('''
-                SELECT role, content 
-                FROM messages 
-                WHERE role != 'system'
-                ORDER BY id
-            ''')
-            return [{"role": role, "content": content} for role, content in cursor.fetchall()]
-    
+    def update_system_prompt(self, new_prompt: str):
+        """Update the system prompt in the database and refresh the chat template."""
+        # Update the prompt in the database
+        self.prompt_manager.set_prompt('main_chat', new_prompt)
+        
+        # Update the chat prompt template
+        self.chat_prompt = ChatPromptTemplate.from_messages([
+            ("system", new_prompt),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}")
+        ])
+
+    def refresh_system_prompt(self):
+        """Refresh the system prompt from the database and update chat template."""
+        # Get current system prompt from database
+        system_prompt = self.prompt_manager.get_prompt('main_chat')
+        
+        # Update the chat prompt template
+        self.chat_prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}")
+        ])
+
     def save_message(self, role, content):
         """Save a new message to the database."""
         with sqlite3.connect(self.db_path) as conn:
@@ -108,7 +80,7 @@ class MainChatCore:
             conn.commit()
         
     def get_latest_instruction(self):
-        """Fetch the latest unexecuted instruction from the database"""
+        """Fetch the latest unexecuted instruction from the database."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -130,65 +102,56 @@ class MainChatCore:
                 return instruction
             return None
 
-    def refresh_system_prompt(self):
-        """Refresh the system prompt and update chat history"""
-        new_prompt = self.prompt_manager.get_prompt('main_chat')
-        
-        # Get current time context
-        current_time = datetime.now()
-        time_context = self.time_context_manager.get_time_context(current_time)
-        
-        # Add time context to the prompt
-        time_context_prompt = self.time_context_manager.get_time_context_prompt(time_context)
-        new_prompt = f"{new_prompt}\n\n{time_context_prompt}"
-        
-        if new_prompt != self.system_prompt:
-            self.system_prompt = new_prompt
-            # Update the system message in chat history
-            if self.chat_history and isinstance(self.chat_history[0], SystemMessage):
-                self.chat_history[0] = SystemMessage(content=self.system_prompt)
-            else:
-                # Insert system message at the beginning if not present
-                self.chat_history.insert(0, SystemMessage(content=self.system_prompt))
+    def is_feature_enabled(self, feature_name: str) -> bool:
+        """Check if a feature is enabled in the database."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                'SELECT is_enabled FROM feature_toggles WHERE feature_name = ?',
+                (feature_name,)
+            )
+            result = cursor.fetchone()
+            return bool(result[0]) if result else False
 
     async def process_message(self, message: str) -> str:
-        """Process a message and return the response"""
-        # Refresh system prompt before processing (now includes time context)
-        self.refresh_system_prompt()
-        
-        # Get current time context for the greeting
-        current_time = datetime.now()
-        time_context = self.time_context_manager.get_time_context(current_time)
+        """Process a message and return the response."""
+        # Create HumanMessage from input
+        human_message = HumanMessage(content=message)
         
         # Add message to chat history
-        self.chat_history.append(HumanMessage(content=message))
+        self.chat_history.append(human_message)
         
         # Only check for instructions if this isn't the first user message
-        # We count messages after the system prompt
-        if len(self.chat_history) > 2:  # System prompt + at least one exchange
+        if len(self.chat_history) > 1:  # At least one previous exchange
             instruction = self.get_latest_instruction()
             if instruction:
-                # Append instruction to the last user message with time context
-                greeting = self.time_context_manager.get_time_appropriate_greeting(time_context)
-                self.chat_history[-1] = HumanMessage(
-                    content=f"{message}\n[System instruction: {greeting}. {instruction}]"
-                )
+                # Format message with instruction
+                message_with_instruction = HumanMessage(content=f"{message}\n[System instruction: {instruction}]")
+                self.chat_history[-1] = message_with_instruction
         
-        # Get response from LLM
-        response = await self.llm.agenerate([self.chat_history])
-        ai_message = response.generations[0][0].text
-        
-        # Add response to chat history
-        self.chat_history.append(AIMessage(content=ai_message))
-        
-        # Save to database - save original message without instruction
-        self.save_message("human", message)
-        self.save_message("ai", ai_message)
-        
-        # Add task to async manager - passing as a single task object
-        await self.task_manager.add_task(
-            "process_chat",
-            chat_history=self.chat_history
+        # Format prompt with chat history and current message
+        # For the first message, don't include any chat history to avoid double system prompt
+        prev_messages = self.chat_history[:-1] if len(self.chat_history) > 1 else []
+        messages = self.chat_prompt.format_messages(
+            chat_history=prev_messages,  # Previous messages, empty for first message
+            input=message  # Current message
         )
         
-        return ai_message
+        # Get response from LLM using invoke instead of agenerate
+        response = await self.llm.ainvoke(messages)
+        ai_message = AIMessage(content=response.content)
+        
+        # Add response to chat history
+        self.chat_history.append(ai_message)
+        
+        # Save to database
+        self.save_message("human", message)
+        self.save_message("ai", ai_message.content)
+
+        # Add task to async manager if it's initialized
+        if self.task_manager is not None:
+            await self.task_manager.add_task(
+                "process_chat",
+                chat_history=self.chat_history
+            )
+        
+        return ai_message.content

@@ -2,6 +2,8 @@ import asyncio
 import signal
 import sys
 import logging
+from datetime import datetime
+import sqlite3
 from src.main import create_app
 
 # Configure logging to ignore the specific Windows error
@@ -51,12 +53,8 @@ async def shutdown(app, loop):
 
 async def clear_database():
     """Clear all entries from messages and extracted_information tables"""
-    import sqlite3
-    import os
-    
-    db_path = 'data/chat.db'
-    if os.path.exists(db_path):
-        with sqlite3.connect(db_path) as conn:
+    try:
+        with sqlite3.connect('data/chat.db') as conn:
             cursor = conn.cursor()
             # Clear messages table
             cursor.execute('DELETE FROM messages')
@@ -66,11 +64,11 @@ async def clear_database():
             cursor.execute('DELETE FROM conversation_analysis')
             # Clear generated_instructions table
             cursor.execute('DELETE FROM generated_instructions')
-            # Clear system_prompts table
-            cursor.execute('DELETE FROM system_prompts')
             
             conn.commit()
             print("Database tables cleared successfully")
+    except Exception as e:
+        print(f"Error clearing database: {e}")
 
 async def main():
     # Register signal handler
@@ -108,6 +106,34 @@ async def main():
         await shutdown(app, loop)
 
 if __name__ == "__main__":
+    # Initialize the database and feature toggles
+    db_path = 'data/chat.db'
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        # Initialize feature toggles with specified values
+        feature_toggles = [
+            ('time_context', 0, '2025-02-08 21:28:47'),
+            ('information_extractor', 1, '2025-02-08 21:28:47'),
+            ('conversation_analyzer', 1, '2025-02-08 21:28:47'),
+            ('instruction_generator', 1, '2025-02-08 21:28:47')
+        ]
+        
+        # Create feature toggles table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS feature_toggles (
+                feature_name TEXT PRIMARY KEY,
+                is_enabled INTEGER NOT NULL,
+                last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Insert the specified feature toggles
+        cursor.executemany(
+            'INSERT OR REPLACE INTO feature_toggles (feature_name, is_enabled, last_updated) VALUES (?, ?, ?)',
+            feature_toggles
+        )
+        conn.commit()
+    
     if sys.platform == "win32":
         # Set up a different event loop policy for Windows
         asyncio.set_event_loop_policy(WindowsSelectorEventLoopPolicy())

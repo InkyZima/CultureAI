@@ -4,6 +4,7 @@ from .information_extractor import InformationExtractor
 from .conversation_analyzer import ConversationAnalyzer
 from .instruction_generator import InstructionGenerator
 from langchain.schema import HumanMessage, AIMessage
+import sqlite3
 
 class AsyncTaskManager:
     def __init__(self):
@@ -11,7 +12,18 @@ class AsyncTaskManager:
         self.info_extractor = InformationExtractor()
         self.conv_analyzer = ConversationAnalyzer()
         self.instr_generator = InstructionGenerator()
+        self.db_path = 'data/chat.db'
         
+    def is_feature_enabled(self, feature_name: str) -> bool:
+        """Check if a feature is enabled in the database"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                'SELECT is_enabled FROM feature_toggles WHERE feature_name = ?',
+                (feature_name,)
+            )
+            result = cursor.fetchone()
+            return bool(result[0]) if result else False
+
     async def start(self):
         """Start the task worker"""
         asyncio.create_task(self._worker())
@@ -51,18 +63,23 @@ class AsyncTaskManager:
         for msg in chat_history[-3:]:  # Show last 3 messages
             print(f"- {msg['role']}: {msg['content'][:50]}...")  # Truncate long messages
         
-        # Extract information first
-        extracted_info = await self.info_extractor.process(chat_history)
-        print("\nExtracted info:")
-        for category, items in extracted_info.items():
-            if items:  # Only show non-empty categories
-                print(f"- {category}:", items)
+        # Extract information first if enabled
+        extracted_info = {}
+        if self.is_feature_enabled('information_extractor'):
+            extracted_info = await self.info_extractor.process(chat_history)
+            print("\nExtracted info:")
+            for category, items in extracted_info.items():
+                if items:  # Only show non-empty categories
+                    print(f"- {category}:", items)
         
-        # Then analyze conversation using extracted info
-        analysis = await self.conv_analyzer.process(chat_history, extracted_info)
+        # Then analyze conversation using extracted info if enabled
+        analysis = {}
+        if self.is_feature_enabled('conversation_analyzer'):
+            analysis = await self.conv_analyzer.process(chat_history, extracted_info)
         
-        # Generate instructions based on conversation analysis
-        await self.instr_generator.process_user_triggered(chat_history, analysis)
+        # Generate instructions based on conversation analysis if enabled
+        if self.is_feature_enabled('instruction_generator'):
+            await self.instr_generator.process_user_triggered(chat_history, analysis)
         
         # TODO: Remove this line after instruction generation is implemented
         # return analysis
