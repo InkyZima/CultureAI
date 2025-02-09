@@ -97,7 +97,6 @@ The project will be divided into the following phases:
 - [ ] Update MainChatCore for simple time awareness
     - [ ] Add timestamp to each conversation message
     - [ ] Pass message timestamps to LLM for context
-    - [ ] Update system prompts for time awareness
 - [ ] Add tests for time-aware instruction generation
 
 #### Stage 3: Proactive Message Generation (Pending)

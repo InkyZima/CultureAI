@@ -136,7 +136,7 @@ class MainChatCore:
             input=message  # Current message
         )
         
-        # Get response from LLM using invoke instead of agenerate
+        # Get response from LLM using invoke
         response = await self.llm.ainvoke(messages)
         ai_message = AIMessage(content=response.content)
         
