@@ -1,0 +1,33 @@
+# Overall Project Instruction:
+Please keep in mind the [project architecture summary](docs/project_arch_summary.md). 
+Please adhere to the [project plan](docs/project_plan.md).
+After making any changes, make sure to update the [project plan](docs/project_plan.md) with the changes.
+The project plan should at all times clearly outline every required aspect of the agent along with a structured list of to-dos divided into phases.
+
+## Branching Strategy:
+- For each phase, feature, or sub-task, create a new git branch.  
+- Ensure that changes remain isolated until fully integrated and validated.
+
+## Technology Stack & Implementation:
+- Evaluate and choose technologies that are both state-of-the-art and widely adopted for this type of functionality.   
+- For each chosen technology, consult official documentation, best-practices, and well-established examples.  
+- Document and follow the intended usage patterns and standard practices to ensure that implementations are professional and not “hacky.”
+- Adopt a modular design that ensures clear separation of concerns.  
+- Avoid overengineering by tailoring the complexity to the project’s scale (e.g., do not introduce heavy scaling frameworks if the app is for a single user).
+
+## Development Process:
+- **Incremental Feature Development:**  
+  - Implement features in clearly defined phases or steps.  
+  - Validate each phase with its own set of tests before moving to the next.
+  - Write unit tests (using frameworks such as PyTest) and end-to-end tests before or alongside feature implementation.  
+- **Bug Fixing & Refactoring:**  
+  - When bugs occur, fix them in a targeted manner that preserves the established design and usage patterns.  
+  - If a bug fix requires multiple steps or causes cascading issues, pause to review and possibly refactor the affected architecture to simplify and consolidate.
+  - Consider interdependencies to ensure that changes in one part of the system are reflected appropriately in all affected modules.
+
+## Quality Assurance: 
+- Run all tests (unit, integration, and end-to-end) after each phase and before merging any branch.  
+- Ensure that the application starts and runs without errors.
+- Document each change, including rationale and links to relevant sections of official docs or best-practice guides.  
+- Don't deviate from the researched, intended use of a technology.
+- Maintain a disciplined approach where the “right way” is always prioritized over quick-and-dirty fixes.
