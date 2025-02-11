@@ -9,7 +9,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, AIMessage
 import os
 from dotenv import load_dotenv
-import db_utils # Import the db_utils.py file
+from utils import db_utils # Import the db_utils.py file
 
 logging.basicConfig(level=logging.WARNING)
 

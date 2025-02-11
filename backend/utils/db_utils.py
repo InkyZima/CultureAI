@@ -5,8 +5,15 @@ import sqlite3
 import time
 import logging
 from langchain.schema import HumanMessage, AIMessage
+import os
 
-history_db_file = "conversation_history.db"
+# Define absolute path to the database file
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+history_db_file = os.path.join(base_dir, 'data', 'conversation_history.db')
+
+# Ensure the data directory exists
+os.makedirs(os.path.dirname(history_db_file), exist_ok=True)
+
 
 def create_table():
     conn = sqlite3.connect(history_db_file)
@@ -55,3 +62,11 @@ def save_history(history):
     conn.commit()
     conn.close()
     logging.debug("history saved to database")
+
+
+def clear_history():
+    conn = sqlite3.connect(history_db_file)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM chat_history")
+    conn.commit()
+    conn.close()

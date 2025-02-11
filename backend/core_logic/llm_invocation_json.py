@@ -18,7 +18,7 @@ load_dotenv()
 # Initialize LLM (replace with your actual API key)
 llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=os.environ.get("GOOGLE_API_KEY"))
 
-history_file = "conversation_history.json"
+history_file = "../data/conversation_history.json"
 
 
 def load_history():

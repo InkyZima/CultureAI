@@ -13,10 +13,10 @@ This is the API server. Pre-processing data coming from the front-end to be prop
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Import CORS
 from langchain_google_genai import ChatGoogleGenerativeAI
-import message_injector
-import llm_invocation
-from async_stuff import do_async_stuff
-import streamlit_formatter
+import core_logic.message_injector as message_injector
+import core_logic.llm_invocation as llm_invocation
+from core_logic.async_logic.async_logic import do_async_stuff
+from utils import streamlit_formatter
 
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes - important for local frontend to access backend
