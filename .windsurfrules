@@ -1,13 +1,3 @@
-# Overall Project Instruction:
-Please keep in mind the [project architecture summary](docs/project_arch_summary.md). 
-Please adhere to the [project plan](docs/project_plan.md).
-After making any changes, make sure to update the [project plan](docs/project_plan.md) with the changes.
-The project plan should at all times clearly outline every required aspect of the agent along with a structured list of to-dos divided into phases.
-
-## Branching Strategy:
-- For each phase, feature, or sub-task, create a new git branch.  
-- Ensure that changes remain isolated until fully integrated and validated.
-
 ## Technology Stack & Implementation:
 - Evaluate and choose technologies that are both state-of-the-art and widely adopted for this type of functionality.   
 - For each chosen technology, consult official documentation, best-practices, and well-established examples.  

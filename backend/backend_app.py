@@ -13,7 +13,6 @@ This is the API server. Pre-processing data coming from the front-end to be prop
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Import CORS
 from langchain_google_genai import ChatGoogleGenerativeAI
-import db  # Your db.py file
 import message_injector
 import llm_invocation
 from async_stuff import do_async_stuff
@@ -21,7 +20,6 @@ import streamlit_formatter
 
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes - important for local frontend to access backend
-db.initialize_database() # Initialize database when backend starts
 
 # Initialize LLM (replace with your actual API key)
 llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key='AIzaSyDoIKnOZv7XHqfbHGeyG9YB3lq2OnSRFfU')
@@ -47,7 +45,6 @@ def chat():
     # invoke the llm and do related taksks (save to db)
     llm_response = llm_invocation.invoke_llm(user_message_injected)
 
-    # TODO tell the async task manager to go do their thing
     do_async_stuff()
 
     return llm_response
@@ -58,7 +55,6 @@ def chat_history():
     history = llm_invocation.get_chat_history() # This fetches the history from memory. This is in langchain format
     formatted_history = streamlit_formatter.reformat_history(history)
     return jsonify({"history": formatted_history})
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='127.0.0.1') # Run Flask backend on port 5000

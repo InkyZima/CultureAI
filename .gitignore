@@ -1,1 +1,9 @@
 venv/
+.env
+__pycache__/
+docs/huey/
+huey/
+conversation_history.json
+app.py
+db.py
+backend/__pycache__/

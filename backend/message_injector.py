@@ -1,5 +1,8 @@
-import datetime
+"""
+This code pre-processes chat messages from the user before they are sent to the chat llm to generate a response. This code injects additional instructions into that user chat message.
+"""
 
+import datetime
 
 def inject_system_message(user_message):
     """Inject system instructions into user messages.
