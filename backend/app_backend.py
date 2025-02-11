@@ -17,12 +17,16 @@ import core_logic.message_injector as message_injector
 import core_logic.llm_invocation as llm_invocation
 from core_logic.async_logic.async_logic import do_async_stuff
 from utils import streamlit_formatter
+import os
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes - important for local frontend to access backend
 
 # Initialize LLM (replace with your actual API key)
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key='AIzaSyDoIKnOZv7XHqfbHGeyG9YB3lq2OnSRFfU')
+
+load_dotenv()
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=os.environ.get("GOOGLE_API_KEY"))
 
 @app.route('/chat', methods=['POST'])
 def chat():
