@@ -17,6 +17,5 @@ def inject_datetime(user_message):
     """Inject datetime
     
     The LLM needs to know the time of day when the user is writing them, so that they can use this context to know how to answer. E.g. the LLm shouldn't ask for lunch plans if it's past lunch time.
-    """
-    return user_message
+    """ 
     return "User on " + datetime.datetime.now().strftime("%H:%M") + ": " + user_message

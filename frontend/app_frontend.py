@@ -17,7 +17,7 @@ st.set_page_config(initial_sidebar_state="collapsed")
 # --- End sidebar configuration ---
 
 
-st.title("Minimal Local LLM Chat App (Separated Frontend)")
+st.title("CultureAI")
 
 
 if "chat_history" not in st.session_state:
@@ -54,12 +54,7 @@ if user_message:
 
         with st.chat_message("assistant"):
             st.markdown(llm_response)
-
-        # Fetch updated chat history from backend and update frontend state
-        history_response = requests.get(f"{BACKEND_URL}/chat_history") # Re-fetch history
-        if history_response.status_code == 200:
-            st.session_state.chat_history = history_response.json().get('history', []) # Update history in session state
-
+        st.session_state.chat_history.append({"user_message": user_message, "llm_response": llm_response})
 
     except requests.exceptions.RequestException as e:
         st.error(f"Error communicating with backend: {e}")
@@ -70,3 +65,11 @@ with st.sidebar:
     st.header("Settings")
     st.write("Settings content managed by backend API...")
     # You can add settings widgets here in the sidebar later
+    if st.button("Reset conversation"):
+        try:
+            reset_response = requests.get(f"{BACKEND_URL}/reset_conversation")
+            reset_response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            st.session_state.chat_history = []
+            st.rerun()
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error resetting conversation: {e}")

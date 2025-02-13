@@ -42,6 +42,7 @@ def invoke_llm(user_message, template_name=os.environ.get("DEFAULT_PROMPT_TEMPLA
     """Invokes the llm with the user message and does related tasks (such as save chat history to db).
     """
     try:
+        history = db_utils.load_history() # if user deletes history, we need to fetch the update here, or else we would be stuck with the old history
         history.append(HumanMessage(content=user_message))
 
         prompt_template = prompt_template_manager.get_template_by_name(prompt_templates, template_name)
@@ -51,7 +52,6 @@ def invoke_llm(user_message, template_name=os.environ.get("DEFAULT_PROMPT_TEMPLA
             formatted_prompt = prompt_template.format(user_message=user_message)
             messages_for_llm = [SystemMessage(content=formatted_prompt)] # Use SystemMessage to incorporate the prompt
             messages_for_llm.extend(history) # Append chat history
-            print(history)
             ai_response = llm.invoke(messages_for_llm)
         else:
             # Fallback to no prompt template if default is not found
