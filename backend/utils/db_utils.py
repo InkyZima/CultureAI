@@ -63,10 +63,17 @@ def save_history(history):
     conn.close()
     logging.debug("history saved to database")
 
+def save_injection_message(message):
+    conn = sqlite3.connect(history_db_file)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO injections (message, timestamp) VALUES (?,?)", (message.replace("\n", ""), time.time()))
+    conn.commit()
+    conn.close()
 
 def clear_history():
     conn = sqlite3.connect(history_db_file)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM chat_history")
+    cursor.execute("DELETE FROM injections")
     conn.commit()
     conn.close()

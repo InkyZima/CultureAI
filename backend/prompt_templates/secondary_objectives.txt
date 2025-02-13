@@ -1,0 +1,10 @@
+Conversation between User and AI assistant:
+{conversation_history}
+
+Objectives:
+{objectives}
+
+Instruct the AI assistant what they should tell/ask the User, in order to achieve the Objetives. Your reply should be one sentence long. 
+Examples: 
+- Ask the user what they had for breakfast today.
+- Ask the user if they did physical exercise this morning.

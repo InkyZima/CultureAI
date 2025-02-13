@@ -5,6 +5,7 @@ from time import sleep
 import argparse
 from backend.utils.db_utils import clear_history
 
+
 def run_app():
     # Start the Flask backend
     print("Starting backend server...")
@@ -16,6 +17,10 @@ def run_app():
     # Start the Streamlit frontend
     print("Starting frontend...")
     frontend_process = subprocess.Popen([sys.executable, "-m", "streamlit", "run", "frontend/app_frontend.py"])
+
+    print("Starting background loop...")
+    # from backend.core_logic.async_logic import run_background_loop
+    # run_background_loop()
 
     # Open the frontend in the default browser
     # webbrowser.open("http://localhost:8501")

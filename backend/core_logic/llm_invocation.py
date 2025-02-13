@@ -33,12 +33,12 @@ prompt_templates = prompt_template_manager.prompt_templates # Load prompt templa
 
 
 def get_chat_history():
-    return history
+    return db_utils.load_history()
 
 def save_history(history):
     db_utils.save_history(history) # Use the save_history function from db_utils
 
-def invoke_llm(user_message, template_name=os.environ.get("DEFAULT_PROMPT_TEMPLATE")):
+def invoke_llm(user_message, template_name):
     """Invokes the llm with the user message and does related tasks (such as save chat history to db).
     """
     try:

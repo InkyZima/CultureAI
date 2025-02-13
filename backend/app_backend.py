@@ -15,7 +15,7 @@ from flask_cors import CORS  # Import CORS
 from langchain_google_genai import ChatGoogleGenerativeAI
 import core_logic.message_injector as message_injector
 import core_logic.llm_invocation as llm_invocation
-from core_logic.async_logic.async_logic import do_async_stuff
+from core_logic.async_logic.async_logic import check_for_secondary_objectives
 from utils import streamlit_formatter
 import os
 from dotenv import load_dotenv
@@ -38,15 +38,20 @@ def chat():
     # add (date)time, so that the LLM is aware at which time of day the user is writing
     user_message_injected = message_injector.inject_datetime(user_message)
 
+    history = llm_invocation.get_chat_history()
+    formatted_history = streamlit_formatter.reformat_history(history)
+
     # System instruction injection: We check whether we want to inject a system message into / at the end of the user message, which will then be considered in the following llm invocation. This happens synchronously.
-    user_message_injected = message_injector.inject_system_message(user_message_injected)
+    if not len(formatted_history) < 2  and len(formatted_history) % 4 == 0:
+        user_message_injected = message_injector.inject_system_message(user_message_injected)
 
     print('User message after injection: ', user_message_injected)
 
     # invoke the llm and do related taksks (save to db)
-    llm_response = llm_invocation.invoke_llm(user_message_injected)
+    llm_response = llm_invocation.invoke_llm(user_message_injected, os.environ.get("DEFAULT_PROMPT_TEMPLATE"))
 
-    do_async_stuff()
+    if not len(formatted_history) < 2 and len(formatted_history) % 4 == 3:
+        check_for_secondary_objectives(os.environ.get("DEFAULT_PROMPT_TEMPLATE"))
 
     return llm_response
 

@@ -3,13 +3,28 @@ This code pre-processes chat messages from the user before they are sent to the 
 """
 
 import datetime
+import sqlite3
+import os
+
 
 def inject_system_message(user_message):
     """Inject system instructions into user messages.
 
     Pre-processes user messages received by the API server from the frontend/user, and injects system instructions (by appending them to the end of the user message like so: ... \n[System instruction: Ask the user what they ate for breakfast today.]
     """
-    # dummy implementation - do nothing for now
+    # fetch the last entry from the database conversation_history.db table injections and append them to the user_message
+    conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'conversation_history.db'))
+    c = conn.cursor()
+    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='injections'")
+    if not c.fetchone():
+        c.execute("CREATE TABLE injections (id INTEGER PRIMARY KEY AUTOINCREMENT, message TEXT, timestamp REAL NOT NULL)")
+    c.execute("SELECT message FROM injections ORDER BY id DESC LIMIT 1")
+    row = c.fetchone()
+    if row is not None:
+        if row[0] and row[0].strip() != "":
+            user_message = user_message + "\n[System instruction: " + row[0] + "]"
+    conn.close()
+
     return user_message
 
 
