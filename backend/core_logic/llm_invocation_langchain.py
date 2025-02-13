@@ -17,14 +17,7 @@ logging.basicConfig(level=logging.WARNING)
 load_dotenv()
 
 # Initialize LLM (replace with your actual API key)
-llm = ChatGoogleGenerativeAI(
-  model="gemini-2.0-flash", 
-  google_api_key=os.environ.get("GOOGLE_API_KEY"), 
-  temperature=0,
-  top_p=0.95,
-  top_k=40,
-  max_output_tokens=8192
-)
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=os.environ.get("GOOGLE_API_KEY"), temperature=0)
 
 
 db_utils.create_table() # Run on startup to ensure table exists
@@ -51,7 +44,7 @@ def invoke_llm(user_message, template_name=os.environ.get("DEFAULT_PROMPT_TEMPLA
             formatted_prompt = prompt_template.format(user_message=user_message)
             messages_for_llm = [SystemMessage(content=formatted_prompt)] # Use SystemMessage to incorporate the prompt
             messages_for_llm.extend(history) # Append chat history
-            print(history)
+
             ai_response = llm.invoke(messages_for_llm)
         else:
             # Fallback to no prompt template if default is not found

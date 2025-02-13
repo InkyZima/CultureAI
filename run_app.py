@@ -9,24 +9,29 @@ def run_app():
     # Start the Flask backend
     print("Starting backend server...")
     backend_process = subprocess.Popen([sys.executable, "backend/app_backend.py"])
-    
+
     # Give the backend a moment to start up
     sleep(2)
-    
+
     # Start the Streamlit frontend
     print("Starting frontend...")
     frontend_process = subprocess.Popen([sys.executable, "-m", "streamlit", "run", "frontend/app_frontend.py"])
-    
+
     # Open the frontend in the default browser
-    webbrowser.open("http://localhost:8501")
-    
+    # webbrowser.open("http://localhost:8501")
+
     try:
         # Keep the script running until interrupted
         frontend_process.wait()
     except KeyboardInterrupt:
         print("\nShutting down servers...")
         frontend_process.terminate()
+
+        # **ADD SLEEP HERE BEFORE TERMINATING BACKEND**
+        sleep(3)  # Give backend a few seconds to shutdown gracefully - ADJUST THIS VALUE
+
         backend_process.terminate()
+
         frontend_process.wait()
         backend_process.wait()
         print("Servers shut down successfully")
