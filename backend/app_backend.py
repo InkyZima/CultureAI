@@ -62,11 +62,33 @@ def chat_history():
     formatted_history = streamlit_formatter.reformat_history(history)
     return jsonify({"history": formatted_history})
 
+@app.route('/chat_history_today', methods=['GET'])
+def chat_history_today():
+    from utils.db_utils import load_history_today
+    chat_history_today = load_history_today()
+    formatted_history = streamlit_formatter.reformat_history(chat_history_today)
+    return jsonify({"history": formatted_history})
+
 @app.route('/reset_conversation', methods=['GET'])
 def reset_conversation():
     from utils.db_utils import clear_history
     clear_history()
     return jsonify({"message": "Conversation reset successfully."}), 200
+    
+@app.route('/introduction', methods=['GET'])
+def introduction():
+    llm_response = llm_invocation.invoke_llm("Please introduce yourself.", os.environ.get("DEFAULT_PROMPT_TEMPLATE"), with_history=True)
+    return llm_response   
+
+
+@app.route('/introduction_static', methods=['GET'])
+def introduction_static():
+    template_name = os.environ.get("DEFAULT_PROMPT_TEMPLATE")
+
+    from core_logic.prompt_template_manager import get_template_introduction
+    template_introduction = get_template_introduction(template_name)
+
+    return jsonify({"introduction": template_introduction}), 200
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='127.0.0.1') # Run Flask backend on port 5000

@@ -10,6 +10,7 @@ from langchain.prompts import PromptTemplate
 
 PROMPT_TEMPLATE_DIR = "backend/prompt_templates"  # Directory to store prompt template files
 
+
 def load_templates():
     """Loads prompt templates from files in the prompt_templates directory."""
     templates = {}
@@ -39,6 +40,15 @@ def get_template_names(templates):
 def get_template_by_name(templates, template_name):
     """Retrieves a prompt template by its name."""
     return templates.get(template_name)
+
+def get_template_introduction(template_name):
+    template_introduction_file = os.path.join(PROMPT_TEMPLATE_DIR, template_name, f"{template_name}_intro.txt")
+    if os.path.exists(template_introduction_file):
+        with open(template_introduction_file, "r") as f:
+            template_introduction = f.read()
+    else:
+        print(f"Warning: Template introduction file {template_introduction_file} not found")
+    return template_introduction
 
 # Load templates when the module is initialized
 prompt_templates = load_templates()

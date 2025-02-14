@@ -26,11 +26,13 @@ def reformat_history(langchain_history):
     user_message = None
     llm_response = None
     user_prefix_regex = r"^User on \d{2}:\d{2}:\s*"
+    system_instruction_regex = r"\[System instruction:.*?\]"
 
     for i, message in enumerate(langchain_history):
         if isinstance(message, HumanMessage):
             user_message = message.content
             user_message = re.sub(user_prefix_regex, "", message.content) # remove timestamp
+            user_message = re.sub(system_instruction_regex, "", user_message).strip() # remove system instruction
         elif isinstance(message, AIMessage):
             llm_response = message.content
 
@@ -38,7 +40,7 @@ def reformat_history(langchain_history):
             streamlit_history.append({
                 "user_message": user_message,
                 "llm_response": llm_response,
-                # "timestamp":  You would need to add timestamp logic here if available
+                "timestamp": message.timestamp # You would need to add timestamp logic here if available
             })
             user_message = None  # Reset for the next turn
             llm_response = None   # Reset for the next turn
