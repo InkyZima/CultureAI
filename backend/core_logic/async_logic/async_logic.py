@@ -92,25 +92,27 @@ def check_for_secondary_objectives_logic(template_name, system_prompt):
         )
         now = datetime.datetime.now()
         formatted_history = reformat_history(conversation_history)
-        last_message_timestamp = datetime.datetime.fromisoformat(formatted_history[-1]['timestamp'])
-        time_diff = (now - last_message_timestamp).total_seconds() / 60
-        formatted_prompt = prompt.format(
-            conversation_history=history_str,
-            objectives=objectives,
-            current_time=now.strftime("%H:%M"),
-            last_user_message_minutes=time_diff
-        )
-
-    
-    try:
-        # Invoke the LLM using langchain
-        result = llm.invoke(formatted_prompt)
-        if system_prompt == 'secondary_objectives.txt':
-            save_injection_message(result.content)
-        return result.content
-    except Exception as e:
-        print(f"Error in secondary objectives: {e}")
-    
+        if len(conversation_history) > 1: # don't run the whole thing too early
+            last_message_timestamp = datetime.datetime.fromisoformat(formatted_history[-1]['timestamp'])
+            time_diff = (now - last_message_timestamp).total_seconds() / 60
+            formatted_prompt = prompt.format(
+                conversation_history=history_str,
+                objectives=objectives,
+                current_time=now.strftime("%H:%M"),
+                last_user_message_minutes=time_diff
+            )
+            try:
+                # Invoke the LLM using langchain
+                result = llm.invoke(formatted_prompt)
+                if system_prompt == 'secondary_objectives.txt':
+                    save_injection_message(result.content)
+                return result.content
+            except Exception as e:
+                print(f"Error in secondary objectives: {e}")
+        else:
+            print("Conversation history shorter than 4. Too early to run check_for_secondary_objectives_logic.")
+            return "Conversation history shorter than 4. Too early to run check_for_secondary_objectives_logic."
+            
 
     
 
@@ -138,10 +140,9 @@ def background_loop_logic():
     if decision:
         print("Background loop decided to prompt the user.")
         formatted_instruction = "[System instruction: " + instruction + "]"
-        # result = invoke Elementarist with Elementarist system prompt and user_message = [System instruction]. save only the resulting AI message to db.
         template_llm_answer = invoke_llm(formatted_instruction, os.environ.get("DEFAULT_PROMPT_TEMPLATE"), with_history=True, save_user_message=False)
-        print("template_llm_answer: %s" % str(template_llm_answer))
-        send_notification(template_llm_answer.json().response)
+        print("template_llm_answer: %s" % str(template_llm_answer.response))
+        send_notification(template_name=os.environ.get("DEFAULT_PROMPT_TEMPLATE"), message=template_llm_answer.response)
     else:
         print("Background loop decided NOT to prompt the user.")
     return True

@@ -45,27 +45,26 @@ def save_history(history):
 def invoke_llm(user_message, template_name, with_history=True, save_user_message=True):
     """Invokes the llm with the user message and does related tasks (such as save chat history to db).
     """
+    print("User message: %s" % user_message)
     try:
         history = []
-        if with_history:
-            history = db_utils.load_history() # if user deletes history, we need to fetch the update here, or else we would be stuck with the old history
-            if save_user_message:
-                history.append(HumanMessage(content=user_message))
+        history = db_utils.load_history() # if user deletes history, we need to fetch the update here, or else we would be stuck with the old history
+        history.append(HumanMessage(content=user_message))
 
         prompt_template = prompt_template_manager.get_template_by_name(prompt_templates, template_name)
 
         if prompt_template:
-            # Format the prompt template with the user message
-            formatted_prompt = prompt_template.format(user_message=user_message)
+            # Format the prompt template
+            formatted_prompt = prompt_template.format()
             messages_for_llm = [SystemMessage(content=formatted_prompt)] # Use SystemMessage to incorporate the prompt
-            if with_history:
-                messages_for_llm.extend(history) # Append chat history
+            messages_for_llm.extend(history) # Append chat history
+            print("messages_for_llm: %s" % messages_for_llm)
             ai_response = llm.invoke(messages_for_llm)
         else:
-            if with_history:
-                # Fallback to no prompt template if default is not found
-                ai_response = llm.invoke(history)
-
+            # Fallback to no prompt template if default is not found
+            ai_response = llm.invoke(history)
+        if not save_user_message:
+            history.pop()
         history.append(ai_response)
         save_history(history) # Use the save_history function from db_utils
         return jsonify({"response": ai_response.content})
