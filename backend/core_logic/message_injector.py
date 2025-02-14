@@ -15,7 +15,6 @@ def inject_system_message(user_message):
     # fetch the last entry from the database conversation_history.db table injections and append them to the user_message
     conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'conversation_history.db'))
     c = conn.cursor()
-    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='injections'")
     c.execute("SELECT message FROM injections ORDER BY id DESC LIMIT 1")
     row = c.fetchone()
     if row is not None:

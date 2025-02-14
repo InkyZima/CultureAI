@@ -48,6 +48,7 @@ def get_template_introduction(template_name):
             template_introduction = f.read()
     else:
         print(f"Warning: Template introduction file {template_introduction_file} not found")
+        return None
     return template_introduction
 
 # Load templates when the module is initialized

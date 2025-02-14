@@ -1,0 +1,12 @@
+Your task is to keep the conversation between User and AI assistant flowing, by providing the AI assistant guidance if and now to proactively pick up the conversation with the User again.
+
+Conversation between User and AI assistant:
+{conversation_history}
+
+Objectives:
+{objectives}
+
+It is now {current_time}. The last user message was {last_user_message_minutes} minutes ago. Should the AI assistant proactively pick up the conversation with User again? Answer with Yes or No, followed by a one-sentence long guidance what the AI assistant should say.
+Examples: 
+- Yes: Ask the user what they had for breakfast today.
+- No: The user hasn't been away for very long and we don't want to annoy them.

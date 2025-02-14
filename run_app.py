@@ -4,12 +4,16 @@ import webbrowser
 from time import sleep
 import argparse
 from backend.utils.db_utils import clear_history
-
+from dotenv import load_dotenv
+import os
 
 def run_app():
     # Start the Flask backend
     print("Starting backend server...")
     backend_process = subprocess.Popen([sys.executable, "backend/app_backend.py"])
+
+    load_dotenv()
+    print(os.environ.get("DEFAULT_PROMPT_TEMPLATE"))
 
     # Give the backend a moment to start up
     sleep(2)

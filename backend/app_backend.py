@@ -15,10 +15,12 @@ from flask_cors import CORS  # Import CORS
 from langchain_google_genai import ChatGoogleGenerativeAI
 import core_logic.message_injector as message_injector
 import core_logic.llm_invocation as llm_invocation
-from core_logic.async_logic.async_logic import check_for_secondary_objectives
+from core_logic.async_logic.async_logic import check_for_secondary_objectives, background_loop_logic
 from utils import streamlit_formatter
 import os
 from dotenv import load_dotenv
+from core_logic.async_logic.notification_manager import send_notification
+
 
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes - important for local frontend to access backend
@@ -57,9 +59,9 @@ def chat():
 
 @app.route('/chat_history', methods=['GET'])
 def chat_history():
-
-    history = llm_invocation.get_chat_history() # This fetches the history from memory. This is in langchain format
-    formatted_history = streamlit_formatter.reformat_history(history)
+    from utils.db_utils import load_history
+    chat_history = load_history()
+    formatted_history = streamlit_formatter.reformat_history(chat_history)
     return jsonify({"history": formatted_history})
 
 @app.route('/chat_history_today', methods=['GET'])
@@ -80,6 +82,11 @@ def introduction():
     llm_response = llm_invocation.invoke_llm("Please introduce yourself.", os.environ.get("DEFAULT_PROMPT_TEMPLATE"), with_history=True)
     return llm_response   
 
+
+@app.route('/notification_test', methods=['GET'])
+def notification_test():
+    background_loop_logic()
+    return jsonify({"message": "Notification test successful."}), 200
 
 @app.route('/introduction_static', methods=['GET'])
 def introduction_static():

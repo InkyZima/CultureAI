@@ -42,14 +42,15 @@ def get_chat_history_today():
 def save_history(history):
     db_utils.save_history(history) # Use the save_history function from db_utils
 
-def invoke_llm(user_message, template_name, with_history=True):
+def invoke_llm(user_message, template_name, with_history=True, save_user_message=True):
     """Invokes the llm with the user message and does related tasks (such as save chat history to db).
     """
     try:
         history = []
         if with_history:
             history = db_utils.load_history() # if user deletes history, we need to fetch the update here, or else we would be stuck with the old history
-            history.append(HumanMessage(content=user_message))
+            if save_user_message:
+                history.append(HumanMessage(content=user_message))
 
         prompt_template = prompt_template_manager.get_template_by_name(prompt_templates, template_name)
 
