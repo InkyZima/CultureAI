@@ -141,8 +141,9 @@ def background_loop_logic():
         print("Background loop decided to prompt the user.")
         formatted_instruction = "[System instruction: " + instruction + "]"
         template_llm_answer = invoke_llm(formatted_instruction, os.environ.get("DEFAULT_PROMPT_TEMPLATE"), with_history=True, save_user_message=False)
-        print("template_llm_answer: %s" % str(template_llm_answer.response))
-        send_notification(template_name=os.environ.get("DEFAULT_PROMPT_TEMPLATE"), message=template_llm_answer.response)
+        message_dict = template_llm_answer.get_json()  
+        print("template_llm_answer: %s" % str(message_dict))
+        send_notification(template_name=os.environ.get("DEFAULT_PROMPT_TEMPLATE"), message=message_dict["response"])
     else:
         print("Background loop decided NOT to prompt the user.")
     return True

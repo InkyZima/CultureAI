@@ -29,26 +29,26 @@ The project will be divided into the following phases:
 
 *   **Objective:**  Establish the basic application structure, UI, and core chat communication between the user and the Main Chat LLM.
 *   **Aspects to Consider:**
-    *   **Development Environment Setup:** Python virtual environment setup. Install necessary libraries including Gradio, LangChain, and LLM libraries.
-    *   **UI Framework Implementation (Gradio):** Set up Gradio for the user interface, leveraging its chat-specific components for input and message display. Design the basic chat interface.
+    *   **Development Environment Setup:** Python virtual environment setup. Install necessary libraries including streamlit, LangChain, and LLM libraries.
+    *   **UI Framework Implementation (streamlit):** Set up streamlit for the user interface, leveraging its chat-specific components for input and message display. Design the basic chat interface.
     *   **Main Chat Core Structure:** Implement the basic class/module for `MainChatCore`, handling chat history (in-memory list for now).
     *   **Main Chat LLM Integration (LangChain):** Choose a suitable Main Chat LLM and integrate it into the `MainChatCore` using LangChain for managing LLM interactions. Focus on basic text in/text out.
-    *   **Basic Chat Flow Implementation:** Implement the flow: User input -> `MainChatCore` -> `MainChatLLM` (via LangChain) -> `MainChatCore` -> UI display (Gradio).
+    *   **Basic Chat Flow Implementation:** Implement the flow: User input -> `MainChatCore` -> `MainChatLLM` (via LangChain) -> `MainChatCore` -> UI display (streamlit).
 *   **To-Do List (Phase 1):**
     1.  **Set up Python virtual environment.**
-    2.  **Install Gradio UI framework and LangChain library.**
-    3.  **Design and implement basic chat UI using Gradio (input, display).**
+    2.  **Install streamlit UI framework and LangChain library.**
+    3.  **Design and implement basic chat UI using streamlit (input, display).**
     4.  **Create `MainChatCore` class/module (initial structure).**
     5.  **Select and download a suitable Main Chat LLM model.**
     6.  **Integrate Main Chat LLM with `MainChatCore` using LangChain for interaction.**
-    7.  **Implement basic chat message flow (user -> AI -> display) using Gradio and LangChain.**
+    7.  **Implement basic chat message flow (user -> AI -> display) using streamlit and LangChain.**
     8.  **Basic testing of core chat functionality.**
 *   **Deliverables (Phase 1):**
-    *   Functional basic chat application with Gradio UI and Main Chat LLM integration via LangChain.
+    *   Functional basic chat application with streamlit UI and Main Chat LLM integration via LangChain.
     *   Basic `MainChatCore` class/module structure.
     *   Codebase with basic chat functionality.
     *   Phase 1 completed and tested.
-*   **Technology/Tools (Phase 1):** Python, Virtual Environment, Gradio, LangChain, chosen Main Chat LLM model.
+*   **Technology/Tools (Phase 1):** Python, Virtual Environment, streamlit, LangChain, chosen Main Chat LLM model.
 
 **Phase 2: Async Task Modules - Information Extraction & Conversation Analysis**
 
@@ -104,15 +104,15 @@ The project will be divided into the following phases:
 *   **Objective:** Integrate all components, implement system instruction injection, refine proactive message flow, and conduct thorough end-to-end testing.
 *   **Aspects to Consider:**
     *   **System Instruction Injection Implementation:** Implement the logic in `MainChatCore` to inject system instructions by appending `[System instruction:...]` to the last user message in the Chat History before sending to `MainChatLLM` via LangChain.
-    *   **Refine Proactive Message Flow (Gradio UI Integration):** Ensure smooth flow of proactive messages initiated by the timed trigger, properly displayed in the Gradio UI and recorded in Chat History.
+    *   **Refine Proactive Message Flow (streamlit UI Integration):** Ensure smooth flow of proactive messages initiated by the timed trigger, properly displayed in the streamlit UI and recorded in Chat History.
     *   **End-to-End Testing (All Workflows):** Test all workflows: User message -> async tasks -> instruction injection -> AI response, and Timed Trigger -> proactive message generation. Test error handling scenarios, including those handled by tenacity.
-    *   **Usability Testing (Basic - Gradio UI):**  Initial user testing to evaluate basic usability and conversation flow within the Gradio UI.
+    *   **Usability Testing (Basic - streamlit UI):**  Initial user testing to evaluate basic usability and conversation flow within the streamlit UI.
     *   **Configuration and Basic Setup:**  Implement basic configuration options (e.g., choosing LLM models via LangChain, setting timer intervals via AsyncIO - if configurable).
 *   **To-Do List (Phase 4):**
     1.  **Implement system instruction injection in `MainChatCore` for LangChain interactions.**
-    2.  **Refine the proactive message generation flow and UI display within Gradio.**
+    2.  **Refine the proactive message generation flow and UI display within streamlit.**
     3.  **Conduct comprehensive end-to-end testing of all workflows (user-message triggered, timed-triggered, error cases, tenacity retries).**
-    4.  **Perform basic usability testing with Gradio UI and gather initial feedback.**
+    4.  **Perform basic usability testing with streamlit UI and gather initial feedback.**
     5.  **Implement basic configuration options (e.g., LLM selection via LangChain, timer interval via AsyncIO).**
     6.  **Address and fix bugs identified during testing.**
 *   **Deliverables (Phase 4):**
@@ -127,12 +127,12 @@ The project will be divided into the following phases:
 *   **Objective:** Refine the application based on testing feedback, optimize for performance (especially for Raspberry Pi if targeted), and prepare for deployment. Consider containerization for consistent local deployment if needed.
 *   **Aspects to Consider:**
     *   **Performance Optimization:** Profile the application for performance bottlenecks, optimize code, consider model quantization or smaller models for Raspberry Pi compatibility. Leverage LangChain's model management if helpful.
-    *   **Refinement based on Testing Feedback:** Address any usability issues within Gradio UI, refine conversation flow, improve error handling, and enhance overall user experience based on testing in Phase 4.
+    *   **Refinement based on Testing Feedback:** Address any usability issues within streamlit UI, refine conversation flow, improve error handling, and enhance overall user experience based on testing in Phase 4.
     *   **Raspberry Pi Deployment Preparation (if desired):**  Test application on Raspberry Pi, optimize for resource constraints, create deployment instructions, consider containerization (Docker) for easier deployment if needed.
     *   **Documentation (Basic):** Create basic user and developer documentation.
 *   **To-Do List (Phase 5):**
     1.  **Performance profiling and optimization (focus on Raspberry Pi if targeting it).**
-    2.  **Address usability issues and refine conversation flow based on testing feedback within Gradio.**
+    2.  **Address usability issues and refine conversation flow based on testing feedback within streamlit.**
     3.  **Enhance error handling and logging based on testing, refine tenacity retry strategies if necessary.**
     4.  **Test and optimize application specifically on Raspberry Pi (if applicable), consider containerization for deployment.**
     5.  **Create basic user and developer documentation.**

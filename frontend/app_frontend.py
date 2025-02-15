@@ -165,6 +165,7 @@ with st.sidebar:
             st.error(f"Error resetting conversation: {e}")
     if st.button("Notification Test"):
         try:
+            msg = st.toast('Gathering ingredients...')
             reset_response = requests.get(f"{BACKEND_URL}/notification_test")
             reset_response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
         except requests.exceptions.RequestException as e:

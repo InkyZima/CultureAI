@@ -7,3 +7,4 @@ conversation_history.json
 app.py
 db.py
 backend/__pycache__/
+backend/data

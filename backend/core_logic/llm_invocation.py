@@ -58,7 +58,6 @@ def invoke_llm(user_message, template_name, with_history=True, save_user_message
             formatted_prompt = prompt_template.format()
             messages_for_llm = [SystemMessage(content=formatted_prompt)] # Use SystemMessage to incorporate the prompt
             messages_for_llm.extend(history) # Append chat history
-            print("messages_for_llm: %s" % messages_for_llm)
             ai_response = llm.invoke(messages_for_llm)
         else:
             # Fallback to no prompt template if default is not found
