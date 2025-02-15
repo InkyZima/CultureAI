@@ -14,7 +14,7 @@ import core_logic.prompt_template_manager as prompt_template_manager # Import th
 
 logging.basicConfig(level=logging.WARNING)
 
-load_dotenv()
+load_dotenv(override=True)
 
 # Initialize LLM (replace with your actual API key)
 llm = ChatGoogleGenerativeAI(

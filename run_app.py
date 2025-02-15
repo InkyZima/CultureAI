@@ -12,7 +12,7 @@ def run_app():
     print("Starting backend server...")
     backend_process = subprocess.Popen([sys.executable, "backend/app_backend.py"])
 
-    load_dotenv()
+    load_dotenv(override=True)
     print(os.environ.get("DEFAULT_PROMPT_TEMPLATE"))
 
     # Give the backend a moment to start up

@@ -11,6 +11,7 @@ This is the API server. Pre-processing data coming from the front-end to be prop
 """
 
 from flask import Flask, request, jsonify
+from flask_socketio import SocketIO, emit
 from flask_cors import CORS  # Import CORS
 from langchain_google_genai import ChatGoogleGenerativeAI
 import core_logic.message_injector as message_injector
@@ -20,13 +21,31 @@ from utils import streamlit_formatter
 import os
 from dotenv import load_dotenv
 from core_logic.async_logic.notification_manager import send_notification
+from socket_instance import app, socketio, get_socketio_instance
+# Remove the Flask and SocketIO initialization code
+# Keep the rest of the imports and code the same
 
+import logging
+
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.WARNING) # Or logging.CRITICAL to suppress more logs
 
 app = Flask(__name__)
-CORS(app) # Enable CORS for all routes - important for local frontend to access backend
+app.config['SECRET_KEY'] = '$%#^hgf*&(&)'
+socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-load_dotenv()
+load_dotenv(override=True)
 llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=os.environ.get("GOOGLE_API_KEY"))
+
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+    emit('message_from_backend', {'data': 'Connected to server'}) # Send message on connection
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -43,8 +62,11 @@ def chat():
     history = llm_invocation.get_chat_history()
     formatted_history = streamlit_formatter.reformat_history(history)
 
+    if len(formatted_history) % 8 == 6:
+        check_for_secondary_objectives(os.environ.get("DEFAULT_PROMPT_TEMPLATE"),"secondary_objectives.txt")
+
     # System instruction injection: We check whether we want to inject a system message into / at the end of the user message, which will then be considered in the following llm invocation. This happens synchronously.
-    if not len(formatted_history) < 2  and len(formatted_history) % 4 == 0:
+    if not len(formatted_history) < 2  and len(formatted_history) % 8 == 0:
         user_message_injected = message_injector.inject_system_message(user_message_injected)
 
     print('User message after injection: ', user_message_injected)
@@ -52,8 +74,6 @@ def chat():
     # invoke the llm and do related taksks (save to db)
     llm_response = llm_invocation.invoke_llm(user_message_injected, os.environ.get("DEFAULT_PROMPT_TEMPLATE"))
 
-    if not len(formatted_history) < 2 and len(formatted_history) % 4 == 3:
-        check_for_secondary_objectives(os.environ.get("DEFAULT_PROMPT_TEMPLATE"))
 
     return llm_response
 
@@ -85,6 +105,7 @@ def introduction():
 
 @app.route('/notification_test', methods=['GET'])
 def notification_test():
+    socketio.emit('message_from_backend', {'data': "notification_test websocket emission."})
     background_loop_logic()
     return jsonify({"message": "Notification test successful."}), 200
 
@@ -97,7 +118,13 @@ def introduction_static():
 
     return jsonify({"introduction": template_introduction}), 200
 
+def get_socketio_instance():
+    if socketio:
+        return socketio
+    else:
+        return None
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000, host='127.0.0.1') # Run Flask backend on port 5000
+    socketio.run(app, debug=True, port=5000, host='127.0.0.1') # Run Flask backend on port 5000
 
     

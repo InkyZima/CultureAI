@@ -24,8 +24,11 @@ from backend.utils.db_utils import load_history
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from utils.db_utils import save_injection_message
 from utils.streamlit_formatter import reformat_history
+from socket_instance import get_socketio_instance
+# Remove the import from app_backend
+# Keep the rest of the imports and code the same
 
-load_dotenv()
+load_dotenv(override=True)
 
 # Initialize LLM (replace with your actual API key)
 llm = ChatGoogleGenerativeAI(
@@ -52,6 +55,7 @@ def check_for_secondary_objectives_logic(template_name, system_prompt):
     Returns:
         str: Suggested next action for the AI assistant
     """
+    print("Running check_for_secondary_objectives_logic with system_prompt: %s" % system_prompt)
     # Get conversation history from the database
     conversation_history = load_history()
     
@@ -92,7 +96,10 @@ def check_for_secondary_objectives_logic(template_name, system_prompt):
         )
         now = datetime.datetime.now()
         formatted_history = reformat_history(conversation_history)
-        if len(conversation_history) > 1: # don't run the whole thing too early
+        print("check_for_secondary_objectives_logic: length of formatted history:" + str(len(formatted_history)))
+        
+        
+        if len(conversation_history) < 4: # don't run the whole thing too early
             last_message_timestamp = datetime.datetime.fromisoformat(formatted_history[-1]['timestamp'])
             time_diff = (now - last_message_timestamp).total_seconds() / 60
             formatted_prompt = prompt.format(
@@ -101,17 +108,19 @@ def check_for_secondary_objectives_logic(template_name, system_prompt):
                 current_time=now.strftime("%H:%M"),
                 last_user_message_minutes=time_diff
             )
-            try:
-                # Invoke the LLM using langchain
-                result = llm.invoke(formatted_prompt)
-                if system_prompt == 'secondary_objectives.txt':
-                    save_injection_message(result.content)
-                return result.content
-            except Exception as e:
-                print(f"Error in secondary objectives: {e}")
         else:
             print("Conversation history shorter than 4. Too early to run check_for_secondary_objectives_logic.")
             return "Conversation history shorter than 4. Too early to run check_for_secondary_objectives_logic."
+    try:
+        # Invoke the LLM using langchain
+        result = llm.invoke(formatted_prompt)
+        print("Result of check_for_secondary_objectives_logic:", result.content)
+        if system_prompt == 'secondary_objectives.txt':
+            save_injection_message(result.content)
+        return result.content
+    except Exception as e:
+        print(f"Error in secondary objectives: {e}")
+
             
 
     
@@ -144,6 +153,7 @@ def background_loop_logic():
         message_dict = template_llm_answer.get_json()  
         print("template_llm_answer: %s" % str(message_dict))
         send_notification(template_name=os.environ.get("DEFAULT_PROMPT_TEMPLATE"), message=message_dict["response"])
+        get_socketio_instance().emit('new_assistant_message', {'data': message_dict["response"]})
     else:
         print("Background loop decided NOT to prompt the user.")
     return True

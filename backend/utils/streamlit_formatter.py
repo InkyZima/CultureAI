@@ -36,7 +36,7 @@ def reformat_history(langchain_history):
         elif isinstance(message, AIMessage):
             llm_response = message.content
 
-        if user_message is not None and llm_response is not None:
+        if user_message is not None or llm_response is not None:
             streamlit_history.append({
                 "user_message": user_message,
                 "llm_response": llm_response,
