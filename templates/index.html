@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Chat App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 800px;
+            margin: 0 auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .chat-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .message-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        .message-role {
+            font-weight: bold;
+        }
+        .message-timestamp {
+            font-style: italic;
+        }
+        .message-content {
+            margin-top: 5px;
+        }
+        .User {
+            background-color: #e8f5e9;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        .System {
+            background-color: #f5f5f5;
+            margin-left: auto;
+            margin-right: auto;
+            text-align: center;
+            font-style: italic;
+        }
+        .Chat-AI, .Agent-AI {
+            background-color: #e3f2fd;
+            align-self: flex-start;
+        }
+        .input-container {
+            display: flex;
+            padding: 10px;
+            background-color: white;
+            border-top: 1px solid #ddd;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        #send-button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #send-button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container" id="chat-container">
+        <!-- Chat messages will be displayed here -->
+    </div>
+    <div class="input-container">
+        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+        <button id="send-button">Send</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Connect to the Socket.IO server
+            const socket = io();
+            const chatContainer = document.getElementById('chat-container');
+            const messageInput = document.getElementById('message-input');
+            const sendButton = document.getElementById('send-button');
+
+            // Function to format timestamp for display
+            function formatTimestamp(isoString) {
+                const date = new Date(isoString);
+                return date.toLocaleTimeString();
+            }
+
+            // Function to add a message to the chat container
+            function addMessage(data) {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message');
+                messageElement.classList.add(data.role);
+                
+                // Create message info element (role and timestamp)
+                const messageInfo = document.createElement('div');
+                messageInfo.classList.add('message-info');
+                
+                // Add role
+                const roleElement = document.createElement('span');
+                roleElement.classList.add('message-role');
+                roleElement.textContent = data.role;
+                messageInfo.appendChild(roleElement);
+                
+                // Add timestamp
+                const timestampElement = document.createElement('span');
+                timestampElement.classList.add('message-timestamp');
+                timestampElement.textContent = formatTimestamp(data.timestamp);
+                messageInfo.appendChild(timestampElement);
+                
+                // Add message content
+                const contentElement = document.createElement('div');
+                contentElement.classList.add('message-content');
+                contentElement.textContent = data.message;
+                
+                // Assemble the message
+                messageElement.appendChild(messageInfo);
+                messageElement.appendChild(contentElement);
+                
+                chatContainer.appendChild(messageElement);
+                
+                // Scroll to the bottom
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            // Handle the send button click
+            function sendMessage() {
+                const messageText = messageInput.value.trim();
+                if (messageText) {
+                    // Create message object
+                    const messageData = {
+                        message: messageText,
+                        timestamp: new Date().toISOString(),
+                        role: 'User'
+                    };
+                    
+                    // Send the message to the server
+                    socket.emit('message', messageData);
+                    
+                    // Add the message to the chat container
+                    addMessage(messageData);
+                    
+                    // Clear the input field
+                    messageInput.value = '';
+                }
+            }
+
+            // Event listeners
+            sendButton.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+
+            // Listen for incoming messages from the server
+            socket.on('message', function(data) {
+                addMessage(data);
+            });
+
+            // Listen for connection event
+            socket.on('connect', function() {
+                console.log('Connected to server');
+            });
+
+            // Listen for disconnection event
+            socket.on('disconnect', function() {
+                console.log('Disconnected from server');
+            });
+        });
+    </script>
+</body>
+</html>
