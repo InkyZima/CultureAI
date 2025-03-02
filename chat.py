@@ -181,7 +181,7 @@ class ChatProcessor:
         
         # Format message to include timestamp and injection string (with further instruction for the LLM)
         injection_content = custom_injection.get('injection', self.injection_string) if custom_injection else self.injection_string
-        formatted_message = f"[{datetime.datetime.fromisoformat(timestamp).strftime('%H:%M')}] {injection_content} {user_message}"
+        formatted_message = f"[{datetime.datetime.fromisoformat(timestamp).strftime('%H:%M')}] [System instruction: {injection_content}] \n\n {user_message}"
         print(f"Sending message to Gemini: '{formatted_message}'")
         
         # Send to Gemini
