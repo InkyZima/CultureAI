@@ -5,7 +5,7 @@ import atexit
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 from database import MessageDatabase
-from agent import MessageAgent
+from agent_old import MessageAgent
 from chat import ChatProcessor, default_model
 
 app = Flask(__name__)
@@ -15,8 +15,8 @@ socketio = SocketIO(app)
 # Create an instance of the MessageDatabase
 db = MessageDatabase()
 # Delete all messages and injections from the database when app starts
-db.delete_all_messages()
-db.delete_all_injections()
+# db.delete_all_messages()
+# db.delete_all_injections()
 
 # Create a messages array to store chat history
 messages = []
@@ -24,12 +24,73 @@ messages = []
 # Create a injections array to store text to be injected into the conversation between Chat-AI and user
 injections = []
 
+# Load existing messages and injections from the database
+def load_data_from_database():
+    """Load existing messages and injections from the database into memory"""
+    global messages, injections
+    
+    # Load messages
+    db_messages = db.get_messages(limit=100)  # Limit to last 100 messages
+    if db_messages:
+        # Reverse to get chronological order (oldest first)
+        db_messages.reverse()
+        
+        # Format as needed for the messages array
+        for msg in db_messages:
+            message_obj = {
+                'message': msg['message'],
+                'timestamp': msg['timestamp'],
+                'role': msg['role']
+            }
+            messages.append(message_obj)
+        print(f"Loaded {len(messages)} messages from database")
+    
+    # Load injections
+    db_injections = db.get_injections(consumed=False)  # Get only unconsumed injections
+    if db_injections:
+        # Add to injections array
+        for inj in db_injections:
+            injection_obj = {
+                'injection': inj['injection'],
+                'timestamp': inj['timestamp'],
+                'role': inj['role'],
+                'consumed': inj['consumed']
+            }
+            injections.append(injection_obj)
+        print(f"Loaded {len(injections)} active injections from database")
+
+# Load data when app starts
+load_data_from_database()
+
 # Create an instance of the MessageAgent with the database
 agent = MessageAgent(socketio, db)
 agent.start()
 
 # Create an instance of the ChatProcessor with SocketIO and database
 chat_processor = ChatProcessor(socketio, db)
+
+# Initialize the chat session with conversation history
+if messages:
+    # Create a session based on existing chat history
+    # This makes the chat model aware of previous conversations
+    session_id = 'default'
+    history = []
+    
+    # Add system prompt as the first interaction
+    system_prompt = chat_processor.system_prompt
+    history.append({"role": "user", "parts": [system_prompt]})
+    history.append({"role": "model", "parts": ["Understood."]})
+    
+    # Add existing messages to history
+    for msg in messages:
+        role = "user" if msg.get('role') == "User" else "model"
+        # Only add user and AI messages to the history (skip system messages)
+        if msg.get('role') in ['User', 'Chat-AI']:
+            history.append({"role": role, "parts": [msg.get('message')]})
+    
+    # Initialize chat session with history
+    chat_processor.chat_sessions[session_id] = chat_processor.model.start_chat(history=history)
+    print(f"Initialized chat session with {len(history) - 2} previous messages") # Subtract 2 for system prompt
 
 @app.route('/')
 def index():
@@ -111,6 +172,35 @@ def handle_user_commands(data):
     if process_persona_command(data, '/persona default', 'system_prompts/system_prompt.txt'):
         return True
     
+    # Check for the delete command
+    if data.get('role') == 'User' and '/delete' in data.get('message', ''):
+        try:
+            # Delete all messages and injections
+            db.delete_all_messages()
+            db.delete_all_injections()
+            
+            # Also clear the in-memory arrays
+            messages.clear()
+            injections.clear()
+            
+            # Inform the user
+            system_message = {
+                'message': 'All messages and injections have been deleted.',
+                'timestamp': datetime.datetime.now().isoformat(),
+                'role': 'System'
+            }
+            socketio.emit('message', system_message)
+            return True
+            
+        except Exception as e:
+            print(f"Error processing delete command: {e}")
+            system_message = {
+                'message': f'Error deleting messages and injections: {str(e)}',
+                'timestamp': datetime.datetime.now().isoformat(),
+                'role': 'System'
+            }
+            socketio.emit('message', system_message)
+            return True
     
     # Add more command handlers here in the future
     

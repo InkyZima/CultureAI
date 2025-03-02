@@ -1,15 +1,12 @@
-from google import genai
-from google.genai.types import Tool, GenerateContentConfig, FunctionDeclaration
 import os
 import json
-import re
 import time
 import datetime
-from google import genai
-from google.generativeai import types
-from .tools.tools_registry import tools_registry
+from typing import Dict, Any, List, Optional
 
-# Import the database
+import google.generativeai as genai
+
+# Import database for logging
 try:
     from database import MessageDatabase
     db = MessageDatabase()
@@ -20,461 +17,230 @@ except ImportError:
     from database import MessageDatabase
     db = MessageDatabase()
 
+# Import tools registry
+from .tools.tools_registry import tools_registry
+
 class LLMAgent:
     """
-    LLM Agent that can process messages and execute tool calls using Google's Generative AI.
+    Agent that processes user messages using Google's Generative AI (Gemini model)
+    and executes tool calls based on the model's responses.
     """
     
-    def __init__(self, use_mock_for_testing=True):
+    def __init__(self):
         """
-        Initialize the LLM agent with the Google Generative AI client.
-        
-        Args:
-            use_mock_for_testing (bool): If True, a mock response will be used if the API key is missing
+        Initialize the LLMAgent with Google Generative AI client and tool specifications.
         """
-        # Initialize Google Generative AI client
+        # Get API key from environment variable
         api_key = os.getenv("GOOGLE_API_KEY")
-        self.use_mock = use_mock_for_testing and not api_key
-        
-        if not api_key and not self.use_mock:
+        if not api_key:
             raise ValueError("GOOGLE_API_KEY environment variable is not set")
         
-        if not self.use_mock:
-            self.client = genai.Client(api_key=api_key)
-            self.model = "gemini-2.0-flash-001"  # Using a Gemini model that supports tool calling
+        # Configure the Google Generative AI client
+        genai.configure(api_key=api_key)
         
-        # Get tool specs from the registry
-        self.tool_specs = tools_registry.get_all_tool_specs()
-    
-    def _log_api_call(self, model, prompt, response=None, function_called=None, function_args=None, function_response=None, error=None, start_time=None, end_time=None):
+        # Get tool specifications from the registry
+        self.tools_registry = tools_registry
+        self.tool_specs = self.tools_registry.get_all_tool_specs()
+        
+        # Set the model to use
+        self.model_name = "gemini-2.0-flash-001"
+
+    def process_message(self, message: str) -> Dict[str, Any]:
         """
-        Log a Gemini API call to the database.
-        
-        Args:
-            model (str): The model used for the call
-            prompt (str or dict): The prompt sent to the model
-            response (obj, optional): The response received from the model
-            function_called (str, optional): Name of the function called
-            function_args (dict, optional): Arguments passed to the function
-            function_response (dict, optional): Response from the function
-            error (str, optional): Any error that occurred
-            start_time (float, optional): Start time of the call (time.time())
-            end_time (float, optional): End time of the call (time.time())
-        """
-        # Calculate latency if start and end times are provided
-        latency_ms = None
-        if start_time and end_time:
-            latency_ms = int((end_time - start_time) * 1000)  # Convert to milliseconds
-        
-        # Create ISO timestamp
-        timestamp = datetime.datetime.now().isoformat()
-        
-        # Convert prompt to string if it's not already
-        if isinstance(prompt, dict) or not isinstance(prompt, str):
-            prompt_str = json.dumps(prompt)
-        else:
-            prompt_str = prompt
-            
-        # Log the call to the database
-        call_data = {
-            'timestamp': timestamp,
-            'model': model,
-            'prompt': prompt_str,
-            'response': response,
-            'function_called': function_called,
-            'function_args': function_args,
-            'function_response': function_response,
-            'error': error,
-            'latency_ms': latency_ms
-        }
-        
-        try:
-            db.log_agent_call(call_data)
-        except Exception as e:
-            print(f"Error logging agent call: {e}")
-    
-    def process_message(self, message):
-        """
-        Process a user message and execute any tool calls if needed.
+        Process a user message and generate a response, potentially executing tools.
         
         Args:
             message (str): The user's message
             
         Returns:
-            dict: Response from the LLM agent, including any tool call results
+            Dict[str, Any]: A dictionary containing the response and any tool execution results
         """
-        # If using mock for testing, check if message contains a path
-        if self.use_mock:
-            # Extract file path using regex pattern
-            file_path_match = re.search(r'(?:^|\s)([a-zA-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*)', message)
-            if file_path_match:
-                file_path = file_path_match.group(1)
-                # Get the function from the registry
-                tool_func = tools_registry.get_tool("read_file")
-                if tool_func:
-                    try:
-                        start_time = time.time()
-                        function_result = tool_func(file_path=file_path)
-                        function_response = json.loads(function_result)
-                        end_time = time.time()
-                        
-                        # Log the mock call
-                        self._log_api_call(
-                            model="mock-model",
-                            prompt=message,
-                            response="Mock response for testing",
-                            function_called="read_file",
-                            function_args={"file_path": file_path},
-                            function_response=function_response,
-                            start_time=start_time,
-                            end_time=end_time
-                        )
-                        
-                        return {
-                            "response": f"I've read the file at {file_path}.",
-                            "tool_used": "read_file",
-                            "tool_args": {"file_path": file_path},
-                            "tool_result": function_response
-                        }
-                    except Exception as e:
-                        error = str(e)
-                        
-                        # Log the error
-                        self._log_api_call(
-                            model="mock-model",
-                            prompt=message,
-                            error=error
-                        )
-                        
-                        return {
-                            "response": f"Error: {error}",
-                            "tool_used": None,
-                            "error": error
-                        }
-            
-            # Log the failed call
-            self._log_api_call(
-                model="mock-model",
-                prompt=message,
-                response="I couldn't find a valid file path in your message."
-            )
-            
-            return {
-                "response": "I couldn't find a valid file path in your message.",
-                "tool_used": None
-            }
-        
         try:
-            # Convert tool specs to Gemini format
-            tools = []
-            for spec in self.tool_specs:
-                if "function_declarations" in spec:
-                    tool = types.Tool(function_declarations=[
-                        types.FunctionDeclaration(
-                            name=func_decl["name"],
-                            description=func_decl["description"],
-                            parameters=types.Schema(**func_decl["parameters"])
-                        ) for func_decl in spec["function_declarations"]
-                    ])
-                    tools.append(tool)
-            
-            # Create user prompt content
-            user_prompt_content = types.Content(
-                role='user',
-                parts=[types.Part.from_text(text=message)]
-            )
-            
-            # Record start time for latency calculation
+            # Log this API call
+            timestamp = datetime.datetime.now().isoformat()
             start_time = time.time()
             
-            # Generate initial response with tool calling enabled
-            try:
-                response = self.client.models.generate_content(
-                    model=self.model,
-                    contents=[user_prompt_content],
-                    config=types.GenerateContentConfig(
-                        tools=tools,
-                        tool_config=types.ToolConfig(
-                            function_calling_config=types.FunctionCallingConfig(mode='ANY')
-                        )
-                    )
-                )
-                
-                initial_response_end_time = time.time()
-                
-                # Log the initial API call
-                self._log_api_call(
-                    model=self.model,
-                    prompt=str(user_prompt_content),
-                    response=str(response),
-                    start_time=start_time,
-                    end_time=initial_response_end_time
-                )
-            except Exception as e:
-                error = str(e)
-                end_time = time.time()
-                
-                # Log the failed API call
-                self._log_api_call(
-                    model=self.model,
-                    prompt=str(user_prompt_content),
-                    error=error,
-                    start_time=start_time,
-                    end_time=end_time
-                )
-                
-                return {
-                    "response": f"Error calling Gemini API: {error}",
-                    "tool_used": None,
-                    "error": error
-                }
+            # Create a Model instance
+            model = genai.GenerativeModel(self.model_name)
+            
+            # Generate content with tools
+            response = model.generate_content(
+                contents=message,
+                tools=self.tool_specs
+            )
+            
+            # Calculate latency
+            end_time = time.time()
+            latency_ms = int((end_time - start_time) * 1000)
+            
+            # Initialize variables
+            tool_used = None
+            tool_args = None
+            tool_result = None
             
             # Check if there's a function call in the response
-            if not hasattr(response, 'function_calls') or not response.function_calls:
-                end_time = time.time()
-                
-                return {
-                    "response": response.text,
-                    "tool_used": None
-                }
+            if hasattr(response, "candidates") and response.candidates:
+                candidate = response.candidates[0]
+                if hasattr(candidate, "content") and candidate.content.parts:
+                    last_part = candidate.content.parts[-1]
+                    if hasattr(last_part, 'function_call'):
+                        # Extract function call details
+                        function_call = last_part.function_call
+                        tool_used = function_call.name
+                        tool_args = {}
+                        
+                        # Convert args to a plain dictionary
+                        for key, value in function_call.args.items():
+                            tool_args[key] = value
+                        
+                        # Log the function call
+                        self._log_api_call(
+                            timestamp=timestamp,
+                            prompt=message,
+                            response=self._safe_str(response),
+                            function_called=tool_used,
+                            function_args=json.dumps(tool_args),
+                            latency_ms=latency_ms
+                        )
+                        
+                        # Execute the tool
+                        result = self._execute_tool(tool_used, tool_args)
+                        tool_result = result
+                        
+                        # Parse the result
+                        result_json = json.loads(result)
+                        
+                        # Create messages for the follow-up request
+                        chat = [
+                            {"role": "user", "parts": [{"text": message}]},
+                            {"role": "model", "parts": [{"function_call": {"name": tool_used, "args": tool_args}}]},
+                            {"role": "function", "parts": [{"function_response": {"name": tool_used, "response": result_json}}]}
+                        ]
+                        
+                        # Generate the final response that includes the function result
+                        final_response = model.generate_content(chat)
+                        
+                        # Log the final response
+                        self._log_api_call(
+                            timestamp=datetime.datetime.now().isoformat(),
+                            prompt=f"[Function Result] {result}",
+                            response=self._safe_str(final_response),
+                            function_response=result,
+                            latency_ms=int((time.time() - end_time) * 1000)
+                        )
+                        
+                        # Return the result
+                        return {
+                            "response": final_response.text,
+                            "tool_used": tool_used,
+                            "tool_args": tool_args,
+                            "tool_result": tool_result
+                        }
             
-            # Get the function call
-            function_call = response.function_calls[0]
-            function_name = function_call.name
-            function_args = function_call.function_call.args
-            
-            # Log the function call details
+            # No function calls, just return the response text
             self._log_api_call(
-                model=self.model,
-                prompt=str(user_prompt_content),
-                function_called=function_name,
-                function_args=function_args
+                timestamp=timestamp,
+                prompt=message,
+                response=self._safe_str(response),
+                latency_ms=latency_ms
             )
             
-            # Get the function from the registry
-            tool_func = tools_registry.get_tool(function_name)
-            if not tool_func:
-                error = f"Function {function_name} not found in registry"
-                
-                # Log the error
-                self._log_api_call(
-                    model=self.model,
-                    prompt=str(user_prompt_content),
-                    function_called=function_name,
-                    function_args=function_args,
-                    error=error
-                )
-                
-                return {
-                    "response": error,
-                    "tool_used": None,
-                    "error": error
-                }
-            
-            # Execute the function
-            function_start_time = time.time()
-            try:
-                function_result = tool_func(**function_args)
-                # Parse the JSON result
-                function_response = json.loads(function_result)
-                function_end_time = time.time()
-                
-                # Log the function execution
-                self._log_api_call(
-                    model=self.model,
-                    prompt=f"Function execution: {function_name}",
-                    function_called=function_name,
-                    function_args=function_args,
-                    function_response=function_response,
-                    start_time=function_start_time,
-                    end_time=function_end_time
-                )
-            except Exception as e:
-                error = str(e)
-                function_end_time = time.time()
-                function_response = {"error": error}
-                
-                # Log the function error
-                self._log_api_call(
-                    model=self.model,
-                    prompt=f"Function execution: {function_name}",
-                    function_called=function_name,
-                    function_args=function_args,
-                    error=error,
-                    start_time=function_start_time,
-                    end_time=function_end_time
-                )
-            
-            # Create function response part
-            function_response_part = types.Part.from_function_response(
-                name=function_name,
-                response=function_response
-            )
-            function_response_content = types.Content(
-                role='tool', 
-                parts=[function_response_part]
-            )
-            
-            # Generate final response
-            final_start_time = time.time()
-            try:
-                final_response = self.client.models.generate_content(
-                    model=self.model,
-                    contents=[
-                        user_prompt_content,
-                        response.candidates[0].content,
-                        function_response_content
-                    ],
-                    config=types.GenerateContentConfig(
-                        tools=tools
-                    )
-                )
-                final_end_time = time.time()
-                
-                # Log the final API call
-                self._log_api_call(
-                    model=self.model,
-                    prompt=f"Final response generation with function results for {function_name}",
-                    response=str(final_response),
-                    function_called=function_name,
-                    function_response=function_response,
-                    start_time=final_start_time,
-                    end_time=final_end_time
-                )
-            except Exception as e:
-                error = str(e)
-                final_end_time = time.time()
-                
-                # Log the error
-                self._log_api_call(
-                    model=self.model,
-                    prompt=f"Final response generation with function results for {function_name}",
-                    function_called=function_name,
-                    function_response=function_response,
-                    error=error,
-                    start_time=final_start_time,
-                    end_time=final_end_time
-                )
-                
-                return {
-                    "response": f"Error generating final response: {error}",
-                    "tool_used": function_name,
-                    "tool_args": function_args,
-                    "tool_result": function_response,
-                    "error": error
-                }
-            
-            # Return the result
             return {
-                "response": final_response.text,
-                "tool_used": function_name,
-                "tool_args": function_args,
-                "tool_result": function_response
+                "response": response.text
             }
+                
+        except Exception as e:
+            # Log the error
+            error_message = f"Error processing message: {str(e)}"
+            print(f"Error: {error_message}")
+            import traceback
+            print(traceback.format_exc())
+            
+            self._log_api_call(
+                timestamp=datetime.datetime.now().isoformat(),
+                prompt=message,
+                error=error_message,
+                latency_ms=0
+            )
+            
+            return {
+                "response": "I'm sorry, but I encountered an error processing your message.",
+                "error": error_message
+            }
+    
+    def _safe_str(self, obj: Any) -> str:
+        """
+        Safely convert an object to string, handling non-serializable objects.
+        
+        Args:
+            obj (Any): The object to convert
+            
+        Returns:
+            str: String representation of the object
+        """
+        try:
+            return str(obj)
+        except Exception:
+            return "Object could not be converted to string"
+    
+    def _execute_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> str:
+        """
+        Execute a tool with the given arguments.
+        
+        Args:
+            tool_name (str): The name of the tool to execute
+            tool_args (Dict[str, Any]): The arguments for the tool
+            
+        Returns:
+            str: The result of the tool execution as a JSON string
+        """
+        try:
+            # Look up the tool in the registry
+            tool_function = self.tools_registry.get_tool(tool_name)
+            
+            if not tool_function:
+                return json.dumps({
+                    "error": f"Tool not found: {tool_name}"
+                })
+            
+            # Execute the tool
+            result = tool_function(**tool_args)
+            return result
             
         except Exception as e:
-            error = str(e)
-            
-            # Log the overall error
-            self._log_api_call(
-                model=self.model if not self.use_mock else "mock-model",
-                prompt=message,
-                error=error
-            )
-            
-            return {
-                "response": f"Error: {error}",
-                "tool_used": None,
-                "error": error
-            }
-
-
-# Legacy function for backward compatibility
-def agent_llm_invoke_google(input="You are a helpful assistant.", model="agent-large", role="system", tools=[]):
-    """
-    Legacy function to invoke the Google Generative AI model.
-    This is maintained for backward compatibility.
+            return json.dumps({
+                "error": f"Error executing tool {tool_name}: {str(e)}"
+            })
     
-    Args:
-        input (str): The input prompt
-        model (str): The model to use
-        role (str): The role for the message
-        tools (list): List of tools to provide to the model
+    def _log_api_call(self, timestamp: str, prompt: str, response: Optional[str] = None,
+                     function_called: Optional[str] = None, function_args: Optional[str] = None,
+                     function_response: Optional[str] = None, error: Optional[str] = None,
+                     latency_ms: int = 0) -> None:
+        """
+        Log an API call to the database.
         
-    Returns:
-        The function call from the model's response, or an empty string if an error occurs
-    """
-    client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-
-    # add the read_file tool to the tools array
-    read_file_tool = Tool(function_declarations=[
-        FunctionDeclaration(
-            name="read_file",
-            description="Reads the contents of a file",
-            parameters={
-                "file_path": "string"
-            }
-        )
-    ])
-    tools.append(read_file_tool)
-    
-    # Log API call to database
-    try:
-        db = MessageDatabase()
-        timestamp = datetime.datetime.now().isoformat()
-        start_time = time.time()
-    except Exception as e:
-        print(f"Error initializing database for logging: {e}")
-        db = None
-
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-001",
-            contents=input,
-            config=GenerateContentConfig(
-                tools=tools
-            )
-        )
-        
-        # Log successful API call
-        if db:
-            end_time = time.time()
-            latency_ms = int((end_time - start_time) * 1000)
-            
-            function_called = None
-            function_args = None
-            if hasattr(response.candidates[0].content.parts[-1], 'function_call'):
-                function_call = response.candidates[0].content.parts[-1].function_call
-                function_called = function_call.name
-                function_args = json.dumps(function_call.args)
-                
+        Args:
+            timestamp (str): ISO-formatted timestamp
+            prompt (str): The prompt sent to the model
+            response (str, optional): The response from the model
+            function_called (str, optional): The name of the function called
+            function_args (str, optional): The arguments for the function call
+            function_response (str, optional): The response from the function
+            error (str, optional): Any error that occurred
+            latency_ms (int): The latency in milliseconds
+        """
+        try:
+            # Log to the database
             db.log_agent_call({
                 'timestamp': timestamp,
-                'model': "gemini-2.0-flash-001",
-                'prompt': input,
-                'response': str(response),
+                'model': self.model_name,
+                'prompt': prompt,
+                'response': response,
                 'function_called': function_called,
                 'function_args': function_args,
+                'function_response': function_response,
+                'error': error,
                 'latency_ms': latency_ms
             })
-
-        if hasattr(response.candidates[0].content.parts[-1], 'function_call'):
-            return response.candidates[0].content.parts[-1].function_call
-        return ""
-        
-    except Exception as e:
-        # Log failed API call
-        if db:
-            end_time = time.time()
-            latency_ms = int((end_time - start_time) * 1000)
-            
-            db.log_agent_call({
-                'timestamp': timestamp,
-                'model': "gemini-2.0-flash-001",
-                'prompt': input,
-                'error': str(e),
-                'latency_ms': latency_ms
-            })
-            
-        print("An error occurred when invoking the LLM: %s" % e)
-        return ""
+        except Exception as e:
+            print(f"Error logging API call: {str(e)}")

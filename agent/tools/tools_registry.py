@@ -1,25 +1,6 @@
 from .read_file import read_file, TOOL_SPEC as READ_FILE_SPEC
-from .write_file import write_file
-
-# Define the tool specification for write_file
-WRITE_FILE_SPEC = {
-    "name": "write_file",
-    "description": "Write content to a file at a specified path",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "file_path": {
-                "type": "string",
-                "description": "The absolute path to the file to write"
-            },
-            "content": {
-                "type": "string",
-                "description": "The content to write to the file"
-            }
-        },
-        "required": ["file_path", "content"]
-    }
-}
+from .inject_instruction import inject_instruction, TOOL_SPEC as INJECT_INSTRUCTION_SPEC
+from .send_notification import send_notification, TOOL_SPEC as SEND_NOTIFICATION_SPEC
 
 class ToolRegistry:
     """Registry for all MCP tools available to the agent."""
@@ -36,11 +17,18 @@ class ToolRegistry:
             spec=READ_FILE_SPEC
         )
         
-        # Register the write_file tool
+        # Register the inject_instruction tool
         self.register_tool(
-            name="write_file",
-            func=write_file,
-            spec=WRITE_FILE_SPEC
+            name="inject_instruction",
+            func=inject_instruction,
+            spec=INJECT_INSTRUCTION_SPEC
+        )
+        
+        # Register the send_notification tool
+        self.register_tool(
+            name="send_notification",
+            func=send_notification,
+            spec=SEND_NOTIFICATION_SPEC
         )
     
     def register_tool(self, name, func, spec):
