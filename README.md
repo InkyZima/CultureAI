@@ -1,8 +1,8 @@
-# LoopAgentClaude Chat Application
+# CultureAI
 
 ## Overview
 
-LoopAgentClaude is an advanced chat application that combines real-time messaging with AI-powered conversational capabilities. Built with Flask, Socket.IO, and Google's Gemini AI, it provides a flexible platform for dynamic persona management and contextual message injection.
+LoopAgentClaude is an advanced chat application that combines real-time messaging with AI-powered conversational capabilities. Built with Flask, Socket.IO, and Google's Gemini AI, it provides a flexible platform for dynamic persona management, contextual message injection, and tool calling capabilities.
 
 ## Key Features
 
@@ -10,6 +10,13 @@ LoopAgentClaude is an advanced chat application that combines real-time messagin
 - WebSocket-based messaging
 - Support for multiple AI roles (Chat-AI and Agent-AI)
 - Direct agent messaging via "@agent" prefix
+
+### LLM Agent with Tool Calling
+- Implements Google Gemini function calling interface
+- Support for tool registration and execution
+- Flexible and extensible framework for adding new tools
+- Includes read_file tool implementation with proper error handling
+- Mock mode for testing without API keys
 
 ### Persona Management
 - Dynamic persona switching via "/persona" commands
@@ -50,12 +57,30 @@ DEFAULT_MODEL="gemini-2.0-flash-thinking-exp"
 python app.py
 ```
 
+4. Test the LLM agent's tool calling:
+```bash
+python test_llm_agent.py
+```
+
 ## API Documentation
 
 ### WebSocket Endpoints
 - `/connect`: Handle new client connections
 - `/message`: Process incoming messages
 - `/disconnect`: Handle client disconnections
+
+### LLM Agent Interface
+- `agent.process_message(prompt)`: Process a message and execute any tool calls
+- Returns a dictionary with:
+  - `response`: Text response from the LLM
+  - `tool_used`: Name of the tool used (if any)
+  - `tool_args`: Arguments passed to the tool (if a tool was used)
+  - `tool_result`: Result from the tool execution (if a tool was used)
+
+### Tool Registry
+- `tools_registry.get_tool(name)`: Get a tool function by name
+- `tools_registry.register_tool(name, func, spec)`: Register a new tool
+- `tools_registry.get_all_tool_specs()`: Get all tool specifications
 
 ### Persona Commands
 - `/persona conversationalist`: Switch to conversationalist persona
@@ -81,6 +106,39 @@ python app.py
 | timestamp  | TEXT        | Creation timestamp              |
 | injection  | TEXT        | Injection content               |
 | consumed   | INTEGER     | Consumption status (0/1)        |
+
+## Tool Implementation Details
+
+### read_file Tool
+The read_file tool allows the LLM agent to read file contents from the file system:
+
+```python
+def read_file(file_path):
+    """Read a file and return its contents as a string."""
+    # Implementation details...
+```
+
+Tool Specification:
+```json
+{
+  "function_declarations": [
+    {
+      "name": "read_file",
+      "description": "Read the contents of a file given its absolute path",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {
+          "file_path": {
+            "type": "STRING",
+            "description": "Absolute path to the file to read"
+          }
+        },
+        "required": ["file_path"]
+      }
+    }
+  ]
+}
+```
 
 ## Contribution Guidelines
 

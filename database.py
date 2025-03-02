@@ -56,6 +56,23 @@ class MessageDatabase:
                 )
             ''')
             
+            # Create agent_calls table for logging Gemini API calls
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS agent_calls (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    prompt TEXT NOT NULL,
+                    response TEXT,
+                    function_called TEXT,
+                    function_args TEXT,
+                    function_response TEXT,
+                    error TEXT,
+                    latency_ms INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
             self.connection.commit()
             print("Database tables created or already exist.")
         except sqlite3.Error as e:
@@ -85,6 +102,103 @@ class MessageDatabase:
         except Exception as e:
             print(f"Error saving message to database: {e}")
             return False
+    
+    def log_agent_call(self, call_data):
+        """
+        Log a Gemini API call to the agent_calls table.
+        
+        Args:
+            call_data (dict): Dictionary containing call information with the following keys:
+                - timestamp: ISO-formatted timestamp of when the call was made
+                - model: The Gemini model used
+                - prompt: The prompt sent to the model
+                - response: The response received from the model (optional)
+                - function_called: Name of the function called (optional)
+                - function_args: JSON string of function arguments (optional)
+                - function_response: The response from the function (optional)
+                - error: Any error that occurred (optional)
+                - latency_ms: The call latency in milliseconds (optional)
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Extract call components with defaults for optional fields
+            timestamp = call_data.get('timestamp', '')
+            model = call_data.get('model', '')
+            prompt = call_data.get('prompt', '')
+            response = call_data.get('response', None)
+            function_called = call_data.get('function_called', None)
+            function_args = call_data.get('function_args', None)
+            function_response = call_data.get('function_response', None)
+            error = call_data.get('error', None)
+            latency_ms = call_data.get('latency_ms', None)
+            
+            # Convert dict/objects to JSON strings
+            if response and not isinstance(response, str):
+                response = json.dumps(response)
+            if function_args and not isinstance(function_args, str):
+                function_args = json.dumps(function_args)
+            if function_response and not isinstance(function_response, str):
+                function_response = json.dumps(function_response)
+            
+            # Insert the call into the database
+            self.cursor.execute(
+                """
+                INSERT INTO agent_calls (
+                    timestamp, model, prompt, response, function_called,
+                    function_args, function_response, error, latency_ms
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    timestamp, model, prompt, response, function_called,
+                    function_args, function_response, error, latency_ms
+                )
+            )
+            self.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Error logging agent call to database: {e}")
+            return False
+    
+    def get_agent_calls(self, limit=100):
+        """
+        Retrieve the most recent agent calls from the database.
+        
+        Args:
+            limit (int): Maximum number of records to retrieve
+            
+        Returns:
+            list: List of agent call dictionaries
+        """
+        try:
+            self.cursor.execute(
+                "SELECT * FROM agent_calls ORDER BY id DESC LIMIT ?",
+                (limit,)
+            )
+            rows = self.cursor.fetchall()
+            
+            # Convert rows to dictionaries
+            calls = []
+            for row in rows:
+                calls.append({
+                    'id': row['id'],
+                    'timestamp': row['timestamp'],
+                    'model': row['model'],
+                    'prompt': row['prompt'],
+                    'response': row['response'],
+                    'function_called': row['function_called'],
+                    'function_args': row['function_args'],
+                    'function_response': row['function_response'],
+                    'error': row['error'],
+                    'latency_ms': row['latency_ms'],
+                    'created_at': row['created_at']
+                })
+            
+            return calls
+        except Exception as e:
+            print(f"Error retrieving agent calls from database: {e}")
+            return []
     
     def get_messages(self, limit=100):
         """Retrieve the most recent messages from the database."""
@@ -205,6 +319,17 @@ class MessageDatabase:
             return True
         except Exception as e:
             print(f"Error deleting injections from database: {e}")
+            return False
+    
+    def delete_all_agent_calls(self):
+        """Delete all agent calls from the database."""
+        try:
+            self.cursor.execute("DELETE FROM agent_calls")
+            self.connection.commit()
+            print(f"All agent calls deleted from the database.")
+            return True
+        except Exception as e:
+            print(f"Error deleting agent calls from database: {e}")
             return False
     
     def close(self):

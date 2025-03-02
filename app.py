@@ -1,3 +1,5 @@
+# git push cultureai-remote master:main
+
 import datetime
 import atexit
 from flask import Flask, render_template
