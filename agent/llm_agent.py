@@ -45,17 +45,55 @@ class LLMAgent:
         # Set the model to use
         self.model_name = "gemini-2.0-flash-001"
 
-    def process_message(self, message: str) -> Dict[str, Any]:
+    def process_message(self, message: Optional[str] = None) -> Dict[str, Any]:
         """
         Process a user message and generate a response, potentially executing tools.
         
         Args:
-            message (str): The user's message
+            message (Optional[str]): The user's message. If None, reads from agent_prompt.txt
             
         Returns:
             Dict[str, Any]: A dictionary containing the response and any tool execution results
         """
         try:
+            # If message is not provided, read from agent_prompt.txt
+            if message is None:
+                prompt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                          "system_prompts", "agent_prompt.txt")
+                with open(prompt_path, "r", encoding="utf-8") as f:
+                    message_template = f.read()
+                
+                # Get chat history from database and format it
+                messages = db.get_messages(limit=20)  # Get last 20 messages
+                messages.reverse()  # Display in chronological order
+                
+                chat_history_str = ""
+                for msg in messages:
+                    role = msg['role']
+                    text = msg['message']
+                    timestamp = msg.get('timestamp', '')
+                    # Format with timestamp if available
+                    if timestamp:
+                        chat_history_str += f"[{timestamp}] {role}: {text}\n\n"
+                    else:
+                        chat_history_str += f"{role}: {text}\n\n"
+                
+                # Replace the {chat_history} placeholder with the formatted chat history
+                if not chat_history_str:
+                    chat_history_str = "No chat history available yet."
+                
+                try:
+                    # Try to format the template with the chat history
+                    message = message_template.replace("{chat_history}", chat_history_str)
+                    
+                    # Check if there are any other unreplaced placeholders
+                    if "{" in message and "}" in message:
+                        print(f"Warning: Template may contain unreplaced placeholders: {message}")
+                except Exception as e:
+                    print(f"Error formatting message template: {e}")
+                    # Fallback to the template with a warning
+                    message = message_template + "\n\nWARNING: Failed to format template properly."
+            
             # Log this API call
             timestamp = datetime.datetime.now().isoformat()
             start_time = time.time()
@@ -66,7 +104,12 @@ class LLMAgent:
             # Generate content with tools
             response = model.generate_content(
                 contents=message,
-                tools=self.tool_specs
+                tools=self.tool_specs,
+                tool_config={
+                    "function_calling_config": {
+                        "mode": "ANY"
+                    }
+                }
             )
             
             # Calculate latency
@@ -90,8 +133,9 @@ class LLMAgent:
                         tool_args = {}
                         
                         # Convert args to a plain dictionary
-                        for key, value in function_call.args.items():
-                            tool_args[key] = value
+                        if hasattr(function_call, 'args') and function_call.args is not None:
+                            for key, value in function_call.args.items():
+                                tool_args[key] = value
                         
                         # Log the function call
                         self._log_api_call(
@@ -110,32 +154,56 @@ class LLMAgent:
                         # Parse the result
                         result_json = json.loads(result)
                         
-                        # Create messages for the follow-up request
-                        chat = [
-                            {"role": "user", "parts": [{"text": message}]},
-                            {"role": "model", "parts": [{"function_call": {"name": tool_used, "args": tool_args}}]},
-                            {"role": "function", "parts": [{"function_response": {"name": tool_used, "response": result_json}}]}
-                        ]
-                        
-                        # Generate the final response that includes the function result
-                        final_response = model.generate_content(chat)
-                        
-                        # Log the final response
-                        self._log_api_call(
-                            timestamp=datetime.datetime.now().isoformat(),
-                            prompt=f"[Function Result] {result}",
-                            response=self._safe_str(final_response),
-                            function_response=result,
-                            latency_ms=int((time.time() - end_time) * 1000)
-                        )
-                        
-                        # Return the result
-                        return {
-                            "response": final_response.text,
-                            "tool_used": tool_used,
-                            "tool_args": tool_args,
-                            "tool_result": tool_result
-                        }
+                        # Only proceed with function calls in chat if we have a valid tool_used name
+                        if tool_used:
+                            # Create messages for the follow-up request
+                            chat = [
+                                {"role": "user", "parts": [{"text": message}]},
+                                {"role": "model", "parts": [{"function_call": {"name": tool_used, "args": tool_args}}]},
+                                {"role": "function", "parts": [{"function_response": {"name": tool_used, "response": result_json}}]}
+                            ]
+                            
+                            # Generate the final response that includes the function result
+                            final_response = model.generate_content(
+                                chat,
+                                tool_config={
+                                    "function_calling_config": {
+                                        "mode": "ANY"
+                                    }
+                                }
+                            )
+                            
+                            # Log the final response
+                            self._log_api_call(
+                                timestamp=datetime.datetime.now().isoformat(),
+                                prompt=f"[Function Result] {result}",
+                                response=self._safe_str(final_response),
+                                function_response=result,
+                                latency_ms=int((time.time() - end_time) * 1000)
+                            )
+                            
+                            # Handle the case when final_response doesn't have text content
+                            final_response_text = "I processed your request and executed the requested tool."
+                            try:
+                                final_response_text = final_response.text
+                            except (ValueError, AttributeError) as e:
+                                print(f"Warning: Could not extract text from final response: {e}")
+                            
+                            # Return the result
+                            return {
+                                "response": final_response_text,
+                                "tool_used": tool_used,
+                                "tool_args": tool_args,
+                                "tool_result": tool_result
+                            }
+                        else:
+                            # If we don't have a valid tool_used name, just return the execution result
+                            return {
+                                "response": f"Tool executed with result: {result}",
+                                "tool_used": "unknown_tool",
+                                "tool_args": tool_args,
+                                "tool_result": tool_result
+                            }
             
             # No function calls, just return the response text
             self._log_api_call(
@@ -145,8 +213,15 @@ class LLMAgent:
                 latency_ms=latency_ms
             )
             
+            # Handle the case when response doesn't have text content
+            response_text = "I processed your request, but no textual response was generated."
+            try:
+                response_text = response.text
+            except (ValueError, AttributeError) as e:
+                print(f"Warning: Could not extract text from response: {e}")
+            
             return {
-                "response": response.text
+                "response": response_text
             }
                 
         except Exception as e:

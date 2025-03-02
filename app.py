@@ -5,7 +5,6 @@ import atexit
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 from database import MessageDatabase
-from agent_old import MessageAgent
 from chat import ChatProcessor, default_model
 
 app = Flask(__name__)
@@ -62,9 +61,6 @@ def load_data_from_database():
 # Load data when app starts
 load_data_from_database()
 
-# Create an instance of the MessageAgent with the database
-agent = MessageAgent(socketio, db)
-agent.start()
 
 # Create an instance of the ChatProcessor with SocketIO and database
 chat_processor = ChatProcessor(socketio, db)
@@ -178,6 +174,7 @@ def handle_user_commands(data):
             # Delete all messages and injections
             db.delete_all_messages()
             db.delete_all_injections()
+            db.delete_all_agent_calls()
             
             # Also clear the in-memory arrays
             messages.clear()
@@ -229,7 +226,8 @@ def handle_message(data):
         chat_processor.process_message(data, messages, injections)
     elif data.get('role') == 'Chat-AI' or talkToAgent:
         # Inform the agent about the chat-AI's response, passing the entire message history
-        agent.receive_user_message(data, messages)
+        # agent.receive_user_message(data, messages)
+        print("Calling agent only.")
     
     # Broadcast the message to all clients except the sender
     socketio.emit('message', data, broadcast=True, include_self=False)
@@ -278,7 +276,5 @@ if __name__ == '__main__':
         # Run the Flask application
         socketio.run(app, debug=True)
     finally:
-        # Ensure the agent is stopped when the app exits
-        agent.stop()
         # Close the database connection
         close_db_connection()
