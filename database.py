@@ -43,6 +43,19 @@ class MessageDatabase:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            
+            # Create injections table
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS injections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    role TEXT NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    injection TEXT NOT NULL,
+                    consumed BOOLEAN NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
             self.connection.commit()
             print("Database tables created or already exist.")
         except sqlite3.Error as e:
@@ -97,6 +110,102 @@ class MessageDatabase:
         except Exception as e:
             print(f"Error retrieving messages from database: {e}")
             return []
+    
+    def delete_all_messages(self):
+        """Delete all messages from the database."""
+        try:
+            self.cursor.execute("DELETE FROM messages")
+            self.connection.commit()
+            print(f"All messages deleted from the database.")
+            return True
+        except Exception as e:
+            print(f"Error deleting messages from database: {e}")
+            return False
+    
+    def save_injection(self, injection_data):
+        """Save an injection to the database."""
+        try:
+            # Extract injection components
+            role = injection_data.get('role', '')
+            timestamp = injection_data.get('timestamp', '')
+            injection = injection_data.get('injection', '')
+            consumed = injection_data.get('consumed', False)
+            
+            # Insert the injection into the database
+            self.cursor.execute(
+                "INSERT INTO injections (role, timestamp, injection, consumed) VALUES (?, ?, ?, ?)",
+                (role, timestamp, injection, 1 if consumed else 0)
+            )
+            self.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Error saving injection to database: {e}")
+            return False
+    
+    def get_injections(self, consumed=None, limit=100):
+        """Retrieve injections from the database.
+        
+        Args:
+            consumed (bool, optional): Filter by consumed status. If None, returns all injections.
+            limit (int): Maximum number of records to retrieve.
+            
+        Returns:
+            list: List of injection dictionaries
+        """
+        try:
+            query = "SELECT * FROM injections"
+            params = []
+            
+            if consumed is not None:
+                query += " WHERE consumed = ?"
+                params.append(1 if consumed else 0)
+                
+            query += " ORDER BY id DESC LIMIT ?"
+            params.append(limit)
+            
+            self.cursor.execute(query, tuple(params))
+            rows = self.cursor.fetchall()
+            
+            # Convert rows to dictionaries
+            injections = []
+            for row in rows:
+                injections.append({
+                    'id': row['id'],
+                    'role': row['role'],
+                    'timestamp': row['timestamp'],
+                    'injection': row['injection'],
+                    'consumed': bool(row['consumed']),
+                    'created_at': row['created_at']
+                })
+            
+            return injections
+        except Exception as e:
+            print(f"Error retrieving injections from database: {e}")
+            return []
+    
+    def mark_injection_consumed(self, injection_id):
+        """Mark an injection as consumed."""
+        try:
+            self.cursor.execute(
+                "UPDATE injections SET consumed = 1 WHERE id = ?",
+                (injection_id,)
+            )
+            self.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Error marking injection as consumed: {e}")
+            return False
+    
+    def delete_all_injections(self):
+        """Delete all injections from the database."""
+        try:
+            self.cursor.execute("DELETE FROM injections")
+            self.connection.commit()
+            print(f"All injections deleted from the database.")
+            return True
+        except Exception as e:
+            print(f"Error deleting injections from database: {e}")
+            return False
     
     def close(self):
         """Close the database connection."""

@@ -7,7 +7,7 @@ class MessageAgent:
     def __init__(self, socketio, db=None):
         self.socketio = socketio
         self.db = db  # Database instance (can be None)
-        self.is_running = False
+        self.active = False
         self.thread = None
         self.test_messages = [
             "Hello, this is a test message from the agent!",
@@ -21,41 +21,108 @@ class MessageAgent:
             "Testing, testing, 1, 2, 3...",
             "This is an automated message from your friendly agent."
         ]
+        self.last_message_time = 0
     
     def set_database(self, db):
         """Set the database instance."""
         self.db = db
     
     def start(self):
-        """Start the agent in a separate thread."""
-        if not self.is_running:
-            self.is_running = True
-            self.thread = threading.Thread(target=self._run)
-            self.thread.daemon = True
-            self.thread.start()
-            print("Agent started and will send messages every 5 seconds")
-    
+        """Start the message agent in a separate thread."""
+        self.active = True
+        # self.thread = threading.Thread(target=self._run)
+        # self.thread.daemon = True  # Thread will exit when the main program exits
+        # self.thread.start()
+        print("MessageAgent started in background thread")
+
     def stop(self):
-        """Stop the agent."""
-        self.is_running = False
+        """Stop the message agent thread."""
+        self.active = False
         if self.thread:
-            self.thread.join(timeout=1)
-            print("Agent stopped")
+            self.thread.join(timeout=1)  # Wait for thread to finish
+        print("MessageAgent stopped")
+
+    def receive_user_message(self, message_data, message_history=[]):
+        """
+        Receive and process a message from a user or AI.
+        
+        Args:
+            message_data (dict): The message data
+            message_history (list): The full history of messages for context
+        """
+        # Extract message content
+        message = message_data.get('message', '')
+        role = message_data.get('role', 'Unknown')
+        
+        # Process the message
+        print(f"Agent received message: '{message}' from {role}")
+        
+        # Update last message timestamp
+        self.last_message_time = time.time()
     
-    def receive_user_message(self, message_data):
-        """Handle a user message received from the frontend."""
-        # Extract the message content from the data
-        message_content = message_data.get('message', '')
-        user_role = message_data.get('role', 'Unknown')
+    def _process_targeted_message(self, message, message_history):
+        """Process a message specifically targeted at the agent.
         
-        # Print the received message to the shell
-        print(f"agent.py: received user message: {message_content} (from {user_role})")
+        Args:
+            message (str): The message content
+            message_history (list): The full history of messages
+        """
+        # Process message that was specifically directed to the agent
+        print(f"Processing targeted message for Agent: '{message}'")
         
-        # Here you could add additional logic to process or respond to the message
+        # Simple command processing
+        if "status" in message.lower():
+            self._send_status_message()
+        elif "help" in message.lower():
+            self._send_help_message()
+        else:
+            # For now, just acknowledge
+            response = {
+                'message': f"Agent received: {message} - I don't have advanced processing capabilities yet.",
+                'timestamp': datetime.datetime.now().isoformat(),
+                'role': 'Agent-AI'
+            }
+            
+            # Save to database if available
+            if self.db:
+                self.db.save_message(response)
+                
+            # Send the message to all clients
+            self.socketio.emit('message', response)
+    
+    def _send_status_message(self):
+        # For now, just send a simple status message
+        response = {
+            'message': "Agent is online and running.",
+            'timestamp': datetime.datetime.now().isoformat(),
+            'role': 'Agent-AI'
+        }
+        
+        # Save to database if available
+        if self.db:
+            self.db.save_message(response)
+            
+        # Send the message to all clients
+        self.socketio.emit('message', response)
+    
+    def _send_help_message(self):
+        # For now, just send a simple help message
+        response = {
+            'message': "Agent can understand the following commands: status, help.",
+            'timestamp': datetime.datetime.now().isoformat(),
+            'role': 'Agent-AI'
+        }
+        
+        # Save to database if available
+        if self.db:
+            self.db.save_message(response)
+            
+        # Send the message to all clients
+        self.socketio.emit('message', response)
     
     def _run(self):
         """Main loop for the agent."""
-        while self.is_running:
+        while self.active:
             try:
                 # Generate a test message
                 message = self._generate_message()

@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Chat App</title>
+    <!-- Add marked.js for markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Add highlight.js for code syntax highlighting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/highlight.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -44,6 +49,51 @@
         }
         .message-content {
             margin-top: 5px;
+        }
+        /* Style for markdown-rendered content */
+        .message-content h1, .message-content h2, .message-content h3 {
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+        }
+        .message-content pre {
+            background-color: #f0f0f0;
+            padding: 0.5em;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .message-content code {
+            font-family: monospace;
+            background-color: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .message-content pre code {
+            padding: 0;
+            background-color: transparent;
+        }
+        .message-content ul, .message-content ol {
+            padding-left: 20px;
+        }
+        .message-content blockquote {
+            border-left: 4px solid #ddd;
+            padding-left: 10px;
+            margin-left: 0;
+            color: #666;
+        }
+        .message-content table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .message-content th, .message-content td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        .message-content a {
+            color: #2962FF;
+            text-decoration: none;
+        }
+        .message-content a:hover {
+            text-decoration: underline;
         }
         .User {
             background-color: #e8f5e9;
@@ -105,10 +155,34 @@
             const messageInput = document.getElementById('message-input');
             const sendButton = document.getElementById('send-button');
 
+            // Configure marked.js with highlight.js for code highlighting
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        return hljs.highlight(code, { language: lang }).value;
+                    }
+                    return hljs.highlightAuto(code).value;
+                },
+                breaks: true,              // Add line breaks in markdown
+                gfm: true,                 // GitHub flavored markdown
+                sanitize: false,           // Allow HTML
+                smartypants: true          // Use smart typography
+            });
+
             // Function to format timestamp for display
             function formatTimestamp(isoString) {
                 const date = new Date(isoString);
                 return date.toLocaleTimeString();
+            }
+
+            // Function to safely parse markdown
+            function parseMarkdown(text) {
+                try {
+                    return marked.parse(text);
+                } catch (error) {
+                    console.error('Error parsing markdown:', error);
+                    return text; // Return original text if parsing fails
+                }
             }
 
             // Function to add a message to the chat container
@@ -136,13 +210,24 @@
                 // Add message content
                 const contentElement = document.createElement('div');
                 contentElement.classList.add('message-content');
-                contentElement.textContent = data.message;
+                
+                // Parse markdown for AI messages, use plain text for user messages
+                if (data.role === 'Chat-AI' || data.role === 'Agent-AI') {
+                    contentElement.innerHTML = parseMarkdown(data.message);
+                } else {
+                    contentElement.textContent = data.message;
+                }
                 
                 // Assemble the message
                 messageElement.appendChild(messageInfo);
                 messageElement.appendChild(contentElement);
                 
                 chatContainer.appendChild(messageElement);
+                
+                // Apply syntax highlighting to any code blocks
+                messageElement.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightBlock(block);
+                });
                 
                 // Scroll to the bottom
                 chatContainer.scrollTop = chatContainer.scrollHeight;
