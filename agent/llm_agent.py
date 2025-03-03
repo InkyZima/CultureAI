@@ -43,7 +43,7 @@ class LLMAgent:
         self.tool_specs = self.tools_registry.get_all_tool_specs()
         
         # Set the model to use
-        self.model_name = "gemini-2.0-flash-001"
+        self.model_name = "gemini-2.0-flash"
 
     def process_message(self, message: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -82,10 +82,25 @@ class LLMAgent:
                 if not chat_history_str:
                     chat_history_str = "No chat history available yet."
                 
+                # Get unconsumed injections from database and format them
+                injections = db.get_injections(consumed=False)
+                unconsumed_injections_str = ""
+                for injection in injections:
+                    instruction = injection.get('injection', '')
+                    timestamp = injection.get('timestamp', '')
+                    if timestamp and instruction:
+                        unconsumed_injections_str += f"[{timestamp}] {instruction}\n"
+                
+                # Replace the {unconsumed_injections} placeholder with the formatted injections
+                if not unconsumed_injections_str:
+                    unconsumed_injections_str = "No pending instructions."
+                
                 try:
-                    # Try to format the template with the chat history
+                    # Try to format the template with the chat history and unconsumed injections
                     message = message_template.replace("{chat_history}", chat_history_str)
-                    
+                    message = message.replace("{unconsumed_injections}", unconsumed_injections_str)
+                    message = message.replace("{timestamp}", datetime.datetime.now().isoformat())
+                    print("LLM prompt: %s" % message)
                     # Check if there are any other unreplaced placeholders
                     if "{" in message and "}" in message:
                         print(f"Warning: Template may contain unreplaced placeholders: {message}")

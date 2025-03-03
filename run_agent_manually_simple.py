@@ -7,7 +7,7 @@ import os
 import traceback
 import json
 from dotenv import load_dotenv
-from agent.llm_agent import LLMAgent
+from agent.thinking_agent import ThinkingAgent
 
 # Load environment variables from .env file if it exists
 load_dotenv()
@@ -15,12 +15,12 @@ load_dotenv()
 try:
     # Initialize the agent
     print("Initializing LLM Agent...")
-    agent = LLMAgent()
+    agent = ThinkingAgent()
     
     # Run the agent with the specified prompt
     print("Processing message...")
     prompt = "Send the user a notification with the content 'Hi from Chat-AI'!"
-    response = agent.process_message(prompt)
+    response = agent.process_message()
     
     # Print the response
     print("Agent response:")
