@@ -4,6 +4,30 @@
 
 LoopAgentClaude is an advanced chat application that combines real-time messaging with AI-powered conversational capabilities. Built with Flask, Socket.IO, and Google's Gemini AI, it provides a flexible platform for dynamic persona management, contextual message injection, and tool calling capabilities.
 
+## Project Structure
+
+```
+LoopAgentClaude/
+├── agent/                 # Agent component for autonomous actions
+│   ├── tools/             # Tool implementations
+│   ├── agent_chain.py     # Tool execution workflow
+│   ├── thinking_agent.py  # Decision-making agent
+│   └── placeholder_handler.py # Template processing system
+├── chat/                  # Chat processing functionality
+│   └── chat.py            # Chat message processing
+├── server/                # Server components (after refactoring)
+│   ├── config.py          # Server configuration
+│   ├── message_manager.py # Message state management
+│   ├── command_handler.py # User command processing
+│   ├── agent_manager.py   # Agent interaction management
+│   └── socket_handlers.py # Socket event handling
+├── static/                # Static assets (JS, CSS)
+├── templates/             # HTML templates
+├── system_prompts/        # System prompts for AI models
+├── app.py                 # Main application entry point
+└── database.py            # Database interactions
+```
+
 ## Key Features
 
 ### Real-time Chat System
@@ -36,8 +60,29 @@ LoopAgentClaude is an advanced chat application that combines real-time messagin
 - SQLite database with:
   * messages table
   * injections table
+  * agent_calls table
 - Automatic table creation
 - Message persistence and retrieval
+
+## Modular Architecture
+
+The application has been refactored into a modular architecture:
+
+### Server Module
+- **MessageManager**: Handles database interactions and in-memory state
+- **CommandHandler**: Processes special user commands
+- **AgentManager**: Manages agent interactions and execution
+- **SocketHandlers**: Handles WebSocket events
+- **Config**: Maintains server configuration
+
+### Agent Module
+- **ThinkingAgent**: Makes decisions about tool usage
+- **AgentChain**: Coordinates tool execution workflow
+- **PlaceholderHandler**: Processes dynamic templates
+- **ToolsRegistry**: Manages available tools
+
+### Chat Module
+- **ChatProcessor**: Handles message processing with Gemini AI
 
 ## Setup Instructions
 
@@ -107,38 +152,19 @@ python test_llm_agent.py
 | injection  | TEXT        | Injection content               |
 | consumed   | INTEGER     | Consumption status (0/1)        |
 
-## Tool Implementation Details
-
-### read_file Tool
-The read_file tool allows the LLM agent to read file contents from the file system:
-
-```python
-def read_file(file_path):
-    """Read a file and return its contents as a string."""
-    # Implementation details...
-```
-
-Tool Specification:
-```json
-{
-  "function_declarations": [
-    {
-      "name": "read_file",
-      "description": "Read the contents of a file given its absolute path",
-      "parameters": {
-        "type": "OBJECT",
-        "properties": {
-          "file_path": {
-            "type": "STRING",
-            "description": "Absolute path to the file to read"
-          }
-        },
-        "required": ["file_path"]
-      }
-    }
-  ]
-}
-```
+### agent_calls Table
+| Column            | Type        | Description                    |
+|-------------------|-------------|--------------------------------|
+| id                | INTEGER     | Primary key                    |
+| timestamp         | TEXT        | Call timestamp                 |
+| model             | TEXT        | Model used                     |
+| prompt            | TEXT        | Input prompt                   |
+| response          | TEXT        | Model response                 |
+| function_called   | TEXT        | Tool name if called            |
+| function_args     | TEXT        | Tool arguments (JSON)          |
+| function_response | TEXT        | Tool execution result          |
+| error             | TEXT        | Error if occurred              |
+| latency_ms        | INTEGER     | Execution time in milliseconds |
 
 ## Contribution Guidelines
 
@@ -148,8 +174,11 @@ Tool Specification:
 4. Add tests for new functionality
 5. Submit a pull request with detailed description
 
-## Security Notes
+## Future Development
 
-- API keys stored in .env file
-- Basic input sanitization
-- No advanced authentication implemented
+- Complete refactoring of app.py into the server module
+- Add more sophisticated tools
+- Implement advanced error handling
+- Enhance the UI with interactive elements
+- Add user authentication system
+- Create a proper deployment pipeline
