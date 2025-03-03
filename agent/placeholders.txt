@@ -1,0 +1,5 @@
+Known prompt template placeholders (see placeholder_handler.py -> class PlaceholderHandler -> __init__):
+
+timestamp
+chat_history
+unconsumed_injections

@@ -184,6 +184,9 @@ def handle_user_commands(data):
             messages.clear()
             injections.clear()
             
+            # Reset the chat processor's chat sessions
+            chat_processor.chat_sessions.clear()
+            
             # Inform the user
             system_message = {
                 'message': 'All messages and injections have been deleted.',

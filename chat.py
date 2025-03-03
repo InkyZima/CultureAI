@@ -190,6 +190,10 @@ class ChatProcessor:
         # Extract the text response
         llm_response_text = gemini_response.text
         
+        # Check if the response starts with a timestamp pattern like "[18:41]" and remove it
+        import re
+        llm_response_text = re.sub(r'^\s*\[\d{1,2}:\d{1,2}\]\s*', '', llm_response_text)
+        
         # Create a response message
         response = {
             'message': llm_response_text,
