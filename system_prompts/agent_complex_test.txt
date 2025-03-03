@@ -1,0 +1,16 @@
+Current time: {timestamp}
+
+Your task is to analyze the conversation history and any pending instructions.
+
+Chat history overview:
+{chat_history}
+
+Pending instructions:
+{unconsumed_injections}
+
+Based on the above information, determine whether to:
+1. Send a new notification to the user
+2. Inject a new instruction for the assistant
+3. Do nothing at this time
+
+Remember to include the current timestamp in any notification.

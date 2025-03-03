@@ -58,13 +58,13 @@ def send_notification(message):
         # Check if the request was successful
         if response.status_code == 200:
             # Log the notification to the database
-            db = MessageDatabase()
-            system_message = {
-                'message': f"Notification sent: {message}",
-                'timestamp': datetime.datetime.now().isoformat(),
-                'role': 'System'
-            }
-            db.save_message(system_message)
+            # db = MessageDatabase()
+            # system_message = {
+            #     'message': f"Notification sent: {message}",
+            #     'timestamp': datetime.datetime.now().isoformat(),
+            #     'role': 'System'
+            # }
+            # db.save_message(system_message)
             
             return json.dumps({
                 "success": True,

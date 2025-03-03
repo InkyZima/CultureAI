@@ -27,18 +27,28 @@ class AgentChain:
     3. Execute the tool if needed
     """
     
-    def __init__(self):
-        """Initialize the AgentChain with the thinking agent and tools registry."""
-        self.thinking_agent = ThinkingAgent()
+    def __init__(self, prompt_path: Optional[str] = None):
+        """
+        Initialize the AgentChain with the thinking agent and tools registry.
+        
+        Args:
+            prompt_path (Optional[str]): Path to a custom prompt template file.
+                If None, uses the default agent_prompt.txt
+        """
+        # Initialize ThinkingAgent with optional custom prompt path
+        self.thinking_agent = ThinkingAgent(prompt_path=prompt_path)
         self.tools_registry = tools_registry
     
-    def execute(self, custom_prompt: Optional[str] = None) -> Dict[str, Any]:
+    def execute(self, custom_prompt: Optional[str] = None, custom_prompt_path: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute the full agent chain.
         
         Args:
-            custom_prompt (Optional[str]): Custom prompt to use. If None, uses agent_prompt.txt
-            
+            custom_prompt (Optional[str]): Custom prompt text to use directly.
+                If None, uses the prompt template specified in ThinkingAgent.
+            custom_prompt_path (Optional[str]): Path to a custom prompt template file.
+                Overrides the default template for this execution only.
+                
         Returns:
             Dict[str, Any]: Dictionary with the chain execution results
         """
@@ -50,6 +60,7 @@ class AgentChain:
         
         # Start with the original prompt
         current_prompt = custom_prompt
+        current_prompt_path = custom_prompt_path
         final_result = None
         
         # Main execution loop - continue until we decide not to use a tool or reach max iterations
@@ -57,7 +68,10 @@ class AgentChain:
             current_iteration += 1
             
             # Step 1: Call the thinking agent to decide what to do
-            thinking_result = self.thinking_agent.process_message(current_prompt)
+            thinking_result = self.thinking_agent.process_message(
+                custom_prompt=current_prompt,
+                custom_prompt_path=current_prompt_path
+            )
             decision_text = thinking_result.get("decision", "")
             
             # Add the decision to the history
@@ -127,13 +141,10 @@ class AgentChain:
             # Prepare context for the next iteration
             context_history = self._format_history_for_next_iteration(decision_history, action_history)
             
-            # If we have a custom prompt, append the context history
-            # Otherwise, let the thinking agent handle formatting with its default template
-            if custom_prompt:
-                current_prompt = f"{custom_prompt}\n\n{context_history}"
-            else:
-                # Pass the context history to the thinking agent to incorporate into its template
-                current_prompt = context_history
+            # For subsequent iterations, always use context_history with the original template
+            # For first iteration, we might have used custom_prompt or custom_prompt_path
+            current_prompt = context_history
+            current_prompt_path = None  # Reset to use default template for subsequent iterations
         
         # If we didn't set a final result (this shouldn't happen but just in case)
         if final_result is None:

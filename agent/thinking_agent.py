@@ -17,6 +17,9 @@ except ImportError:
     from database import MessageDatabase
     db = MessageDatabase()
 
+# Import placeholder handler for template processing
+from .placeholder_handler import process_template
+
 # Import tools registry to get available tools
 from .tools.tools_registry import tools_registry
 
@@ -40,8 +43,14 @@ class ThinkingAgent:
     returning a textual description of its decision rather than a JSON object.
     """
     
-    def __init__(self):
-        """Initialize the ThinkingAgent with Google Generative AI client."""
+    def __init__(self, prompt_path: Optional[str] = None):
+        """
+        Initialize the ThinkingAgent with Google Generative AI client.
+        
+        Args:
+            prompt_path (Optional[str]): Custom path to prompt template file.
+                If None, uses the default agent_prompt.txt
+        """
         # Configure the model
         self.model_name = THINKING_MODEL
         print(f"ThinkingAgent initialized with model: {self.model_name}")
@@ -51,24 +60,39 @@ class ThinkingAgent:
         self.tool_specs = self.tools_registry.get_all_tool_specs()
         
         # Path to the system prompt template
-        self.prompt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                        "system_prompts", "agent_prompt.txt")
+        if prompt_path is None:
+            self.prompt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                         "system_prompts", "agent_prompt.txt")
+        else:
+            self.prompt_path = prompt_path
     
-    def process_message(self, custom_prompt: Optional[str] = None) -> Dict[str, Any]:
+    def process_message(self, custom_prompt: Optional[str] = None, custom_prompt_path: Optional[str] = None) -> Dict[str, Any]:
         """
         Process context information and determine whether to use a tool and which one.
         Returns a textual decision, not a JSON tool call.
         
         Args:
-            custom_prompt (Optional[str]): Custom prompt text. If None, uses agent_prompt.txt
-            
+            custom_prompt (Optional[str]): Custom prompt text. If None, uses the template file
+            custom_prompt_path (Optional[str]): Path to a custom prompt template file.
+                Overrides self.prompt_path and is used only if custom_prompt is None.
+                
         Returns:
             Dict[str, Any]: A dictionary containing the decision text and metadata
         """
         try:
-            # If custom prompt is not provided, read and format the template from agent_prompt.txt
+            # If custom prompt is not provided, read and format the template
             if custom_prompt is None:
+                # If custom_prompt_path is provided, update self.prompt_path temporarily
+                original_prompt_path = self.prompt_path
+                if custom_prompt_path is not None:
+                    self.prompt_path = custom_prompt_path
+                
+                # Prepare the prompt from the template
                 prompt = self._prepare_prompt_from_template()
+                
+                # Restore the original prompt path if it was temporarily changed
+                if custom_prompt_path is not None:
+                    self.prompt_path = original_prompt_path
             else:
                 prompt = custom_prompt
             
@@ -127,53 +151,18 @@ class ThinkingAgent:
     
     def _prepare_prompt_from_template(self) -> str:
         """
-        Read the prompt template from file and fill in the placeholders.
+        Read the prompt template from file and process all placeholders.
         
         Returns:
-            str: The formatted prompt
+            str: The formatted prompt with all placeholders replaced
         """
         try:
             # Read the template
             with open(self.prompt_path, "r", encoding="utf-8") as f:
-                message_template = f.read()
+                template = f.read()
             
-            # Get chat history from database and format it
-            messages = db.get_messages(limit=20)  # Get last 20 messages
-            messages.reverse()  # Display in chronological order
-            
-            chat_history_str = ""
-            for msg in messages:
-                role = msg.get('role', '')
-                text = msg.get('message', '')
-                timestamp = msg.get('timestamp', '')
-                # Format with timestamp if available
-                if timestamp:
-                    chat_history_str += f"[{timestamp}] {role}: {text}\n\n"
-                else:
-                    chat_history_str += f"{role}: {text}\n\n"
-            
-            # Replace the {chat_history} placeholder
-            if not chat_history_str:
-                chat_history_str = "No chat history available yet."
-            
-            # Get unconsumed injections from database and format them
-            injections = db.get_injections(consumed=False)
-            unconsumed_injections_str = ""
-            for injection in injections:
-                instruction = injection.get('injection', '')
-                timestamp = injection.get('timestamp', '')
-                if timestamp and instruction:
-                    unconsumed_injections_str += f"[{timestamp}] {instruction}\n"
-            
-            # Replace the {unconsumed_injections} placeholder
-            if not unconsumed_injections_str:
-                unconsumed_injections_str = "No pending instructions."
-            
-            # Replace all placeholders in the template
-            current_time = datetime.datetime.now().isoformat()
-            formatted_prompt = message_template.replace("{chat_history}", chat_history_str)
-            formatted_prompt = formatted_prompt.replace("{unconsumed_injections}", unconsumed_injections_str)
-            formatted_prompt = formatted_prompt.replace("{timestamp}", current_time)
+            # Process the template using the placeholder handler
+            formatted_prompt = process_template(template)
             
             return formatted_prompt
             
@@ -199,4 +188,7 @@ class ThinkingAgent:
 
 
 if __name__ == "__main__":
-    print("This file should not be run directly. Import it from agent_chain.py instead.")
+    # Test code that runs when this module is executed directly
+    agent = ThinkingAgent()
+    decision = agent.process_message()
+    print(f"Decision: {decision['decision']}")

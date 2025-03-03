@@ -1,0 +1,3 @@
+Current time: {timestamp}
+
+Send a test notification with the current timestamp to the user.
