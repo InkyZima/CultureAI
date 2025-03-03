@@ -259,25 +259,24 @@ def handle_message(data):
             # Prepare the agent's response to the user
             agent_response_message = ""
             
-            # If an action was taken, include details about what the agent did
-            if result.get('action_taken', False):
-                tool_used = result.get('tool_used', 'unknown')
+            # Get the first tool call from action_history if available
+            action_history = result.get('action_history', [])
+            if action_history and len(action_history) > 0:
+                first_action = action_history[0]
+                tool_name = first_action.get('tool_name', 'unknown')
+                tool_args = first_action.get('tool_args', {})
                 
-                if tool_used == "send_notification":
-                    notification = result.get('tool_args', {}).get('message', '')
-                    agent_response_message = f"I've sent a notification: '{notification}'"
-                elif tool_used == "inject_instruction":
-                    instruction = result.get('tool_args', {}).get('instruction', '')
-                    agent_response_message = f"I've added an instruction for your AI assistant: '{instruction}'"
+                # Format the tool args as a string
+                args_str = ", ".join([f"'{k}': '{v}'" for k, v in tool_args.items()])
+                agent_response_message = f"Executing tool: {tool_name} with args: {{{args_str}}}"
+                
+                # Add tool result information if available
+                tool_result = first_action.get('tool_result', {})
+                if tool_result.get('success', True):
+                    agent_response_message += "\nThe operation was successful."
                 else:
-                    agent_response_message = f"I've used the {tool_used} tool based on your request."
-                    
-                # Include tool result information if available
-                if result.get('tool_result', {}).get('success', True):
-                    agent_response_message += " The operation was successful."
-                else:
-                    error = result.get('tool_result', {}).get('error', 'unknown error')
-                    agent_response_message += f" However, there was an issue: {error}"
+                    error = tool_result.get('error', 'unknown error')
+                    agent_response_message += f"\nHowever, there was an issue: {error}"
             else:
                 # If no action was taken, get the reason
                 reason = result.get('reason', "No specific reason was provided.")

@@ -33,6 +33,7 @@ env/
 *.db
 *.sqlite
 *.sqlite3
+messages.db
 
 # Environment variables
 .env
