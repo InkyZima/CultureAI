@@ -9,6 +9,7 @@ import os
 import json
 import re
 import datetime
+import time
 from typing import Dict, Any, Optional, Tuple
 
 # Import the ThinkingAgent
@@ -16,6 +17,9 @@ from .thinking_agent import ThinkingAgent
 
 # Import the tools registry
 from .tools.tools_registry import tools_registry
+
+# Import database for logging
+from database import MessageDatabase
 
 class AgentChain:
     """
@@ -27,17 +31,67 @@ class AgentChain:
     3. Execute the tool if needed
     """
     
-    def __init__(self, prompt_path: Optional[str] = None):
+    def __init__(self, prompt_path: Optional[str] = None, db: Optional[MessageDatabase] = None):
         """
         Initialize the AgentChain with the thinking agent and tools registry.
         
         Args:
             prompt_path (Optional[str]): Path to a custom prompt template file.
                 If None, uses the default agent_prompt.txt
+            db (Optional[MessageDatabase]): Database instance for logging agent calls
         """
         # Initialize ThinkingAgent with optional custom prompt path
         self.thinking_agent = ThinkingAgent(prompt_path=prompt_path)
         self.tools_registry = tools_registry
+        self.db = db
+    
+    def _log_agent_call(self, prompt: str, response: Dict[str, Any], latency_ms: int, error: Optional[str] = None) -> None:
+        """
+        Log the agent call to the database if available.
+        
+        Args:
+            prompt (str): The prompt sent to the agent
+            response (Dict[str, Any]): The agent's response
+            latency_ms (int): Execution time in milliseconds
+            error (Optional[str]): Error message if an error occurred
+        """
+        if self.db is None:
+            return
+            
+        try:
+            # Extract relevant information
+            timestamp = datetime.datetime.now().isoformat()
+            model = "thinking-agent"  # This is a placeholder as we're not directly using an LLM here
+            
+            # Extract function call information if available
+            function_called = None
+            function_args = None
+            function_response = None
+            
+            if response.get("action_taken", False):
+                function_called = response.get("tool_used", "")
+                function_args = json.dumps(response.get("tool_args", {}))
+                function_response = json.dumps(response.get("tool_result", {}))
+            
+            # Convert response to a string for logging
+            response_str = json.dumps(response)
+            
+            # Execute the database query
+            self.db.cursor.execute(
+                """
+                INSERT INTO agent_calls 
+                (timestamp, model, prompt, response, function_called, function_args, 
+                function_response, error, latency_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (timestamp, model, prompt, response_str, function_called, 
+                 function_args, function_response, error, latency_ms)
+            )
+            self.db.connection.commit()
+            print(f"Logged agent call to database, latency: {latency_ms}ms")
+            
+        except Exception as e:
+            print(f"Error logging agent call to database: {e}")
     
     def execute(self, custom_prompt: Optional[str] = None, custom_prompt_path: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -63,16 +117,24 @@ class AgentChain:
         current_prompt_path = custom_prompt_path
         final_result = None
         
+        # Track overall execution time
+        overall_start_time = time.time()
+        
         # Main execution loop - continue until we decide not to use a tool or reach max iterations
         while current_iteration < max_iterations:
             current_iteration += 1
             
             # Step 1: Call the thinking agent to decide what to do
+            start_time = time.time()
             thinking_result = self.thinking_agent.process_message(
                 custom_prompt=current_prompt,
                 custom_prompt_path=current_prompt_path
             )
+            end_time = time.time()
             decision_text = thinking_result.get("decision", "")
+            
+            # Log the agent call
+            self._log_agent_call(current_prompt, thinking_result, int((end_time - start_time) * 1000))
             
             # Add the decision to the history
             decision_time = thinking_result.get("timestamp", datetime.datetime.now().isoformat())
@@ -154,6 +216,11 @@ class AgentChain:
                 "timestamp": datetime.datetime.now().isoformat()
             }
             
+        # Log overall execution time
+        overall_end_time = time.time()
+        overall_latency_ms = int((overall_end_time - overall_start_time) * 1000)
+        print(f"Overall agent execution time: {overall_latency_ms}ms")
+        
         return final_result
         
     def _format_history_for_next_iteration(self, decision_history: list, action_history: list) -> str:

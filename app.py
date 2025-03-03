@@ -5,7 +5,7 @@ import atexit
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 from database import MessageDatabase
-from chat import ChatProcessor, default_model
+from chat.chat import ChatProcessor, default_model
 from agent.agent_chain import AgentChain
 
 app = Flask(__name__)
@@ -247,7 +247,7 @@ def handle_message(data):
         if execute_agent_chain:
             try:
                 # Initialize and execute the agent chain
-                agent_chain = AgentChain()
+                agent_chain = AgentChain(db=db)
                 
                 # Create a custom prompt based on the current conversation state
                 custom_prompt = f"""
