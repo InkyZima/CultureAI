@@ -9,10 +9,14 @@ This script demonstrates the execution of the full agent chain workflow:
 
 Usage:
     python run_agent_chain_manually.py
+    python run_agent_chain_manually.py --file agent_prompt.txt
+    python run_agent_chain_manually.py --prompt "send the user a test notification"
 """
 
 import json
 import sys
+import os
+import argparse
 from agent.agent_chain import AgentChain
 
 def print_with_highlights(title, content):
@@ -21,32 +25,54 @@ def print_with_highlights(title, content):
     print(json.dumps(content, indent=2))
     print()
 
-def main():
-    """Execute the agent chain manually."""
+def read_prompt_from_file(filename):
+    """Read prompt content from a file in the system_prompts directory."""
+    file_path = os.path.join("system_prompts", filename)
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read().strip()
+            print(f"Loaded prompt from {file_path}")
+            return content
+    except FileNotFoundError:
+        print(f"Error: Prompt file not found at {file_path}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading prompt file: {str(e)}")
+        sys.exit(1)
+
+def run_agent_chain(prompt=None):
+    """
+    Execute the agent chain with an optional custom prompt.
+    
+    Args:
+        prompt (str, optional): Custom prompt to use. If None, uses a default example prompt.
+    """
     # Initialize the agent chain
     print("Initializing Agent Chain...")
     agent_chain = AgentChain()
     print("Executing agent chain...")
 
-    # Create a custom prompt that will encourage the agent to use multiple tools
-    custom_prompt = """
-    The user has been inactive for 3 days and may have forgotten about their cultural practices.
-    Additionally, their scheduled meditation session is coming up in 15 minutes according to their calendar.
-    The user also mentioned they wanted to learn more about breathing techniques for their meditation practice.
-    
-    Current time: 10:45 AM, March 3, 2025
-    Last conversation: The user mentioned they were feeling stressed about work and wanted to establish
-    a regular meditation practice but often forgets. They also expressed interest in learning simple breathing techniques
-    they could use during meditation to help with stress reduction.
-    
-    The AI assistant should first notify the user about their upcoming meditation session, 
-    and then send a follow-up instruction about a simple breathing technique they could try during the session.
-    
-    Analyze the situation and decide if any tools should be used to help the user.
-    """
+    # Use provided prompt or default example prompt
+    if prompt is None:
+        # Default example prompt
+        prompt = """
+        The user has been inactive for 3 days and may have forgotten about their cultural practices.
+        Additionally, their scheduled meditation session is coming up in 15 minutes according to their calendar.
+        The user also mentioned they wanted to learn more about breathing techniques for their meditation practice.
+        
+        Current time: 10:45 AM, March 3, 2025
+        Last conversation: The user mentioned they were feeling stressed about work and wanted to establish
+        a regular meditation practice but often forgets. They also expressed interest in learning simple breathing techniques
+        they could use during meditation to help with stress reduction.
+        
+        The AI assistant should first notify the user about their upcoming meditation session, 
+        and then send a follow-up instruction about a simple breathing technique they could try during the session.
+        
+        Analyze the situation and decide if any tools should be used to help the user.
+        """
     
     # Execute the agent chain with the custom prompt
-    result = agent_chain.execute(custom_prompt)
+    result = agent_chain.execute(prompt)
     
     # Print the result with nice formatting
     print_with_highlights("Agent Chain Execution Results:", result)
@@ -78,6 +104,30 @@ def main():
     else:
         # No tool was used
         print(f"Action Summary: No action was taken. Reason: {result.get('reason', 'No reason provided')}")
+
+def main():
+    """Parse command-line arguments and execute the agent chain."""
+    parser = argparse.ArgumentParser(description='Run the agent chain with custom input.')
+    
+    # Create a mutually exclusive group for the two options
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--file', type=str, help='File in system_prompts directory to use as prompt')
+    group.add_argument('--prompt', type=str, help='Custom prompt text to use')
+    
+    args = parser.parse_args()
+    
+    # Determine which prompt to use
+    custom_prompt = None
+    
+    if args.file:
+        print(f"Using prompt from file: {args.file}")
+        custom_prompt = read_prompt_from_file(args.file)
+    elif args.prompt:
+        print(f"Using provided prompt text")
+        custom_prompt = args.prompt
+    
+    # Run the agent chain with the determined prompt
+    run_agent_chain(custom_prompt)
 
 if __name__ == "__main__":
     main()
