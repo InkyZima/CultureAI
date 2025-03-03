@@ -254,7 +254,43 @@ def handle_message(data):
                 'role': 'System'
             }
             messages.append(system_message)
-            socketio.emit('message', system_message, broadcast=True, include_self=False)
+            socketio.emit('message', system_message, broadcast=True)
+            
+            # Prepare the agent's response to the user
+            agent_response_message = ""
+            
+            # If an action was taken, include details about what the agent did
+            if result.get('action_taken', False):
+                tool_used = result.get('tool_used', 'unknown')
+                
+                if tool_used == "send_notification":
+                    notification = result.get('tool_args', {}).get('message', '')
+                    agent_response_message = f"I've sent a notification: '{notification}'"
+                elif tool_used == "inject_instruction":
+                    instruction = result.get('tool_args', {}).get('instruction', '')
+                    agent_response_message = f"I've added an instruction for your AI assistant: '{instruction}'"
+                else:
+                    agent_response_message = f"I've used the {tool_used} tool based on your request."
+                    
+                # Include tool result information if available
+                if result.get('tool_result', {}).get('success', True):
+                    agent_response_message += " The operation was successful."
+                else:
+                    error = result.get('tool_result', {}).get('error', 'unknown error')
+                    agent_response_message += f" However, there was an issue: {error}"
+            else:
+                # If no action was taken, get the reason
+                reason = result.get('reason', "No specific reason was provided.")
+                agent_response_message = f"I analyzed your request but determined no action was needed. {reason}"
+            
+            # Send the agent's response back to the user
+            agent_response = {
+                'message': agent_response_message,
+                'timestamp': datetime.datetime.now().isoformat(),
+                'role': 'Agent-AI'
+            }
+            messages.append(agent_response)
+            socketio.emit('message', agent_response, broadcast=True)
             
             return
         except Exception as e:
@@ -266,7 +302,7 @@ def handle_message(data):
                 'role': 'System'
             }
             messages.append(system_message)
-            socketio.emit('message', system_message, broadcast=True, include_self=False)
+            socketio.emit('message', system_message, broadcast=True)
             return
     
     # Check for regular @agent mention without making it a direct command
@@ -328,7 +364,7 @@ def handle_message(data):
                         'role': 'System'
                     }
                     
-                    socketio.emit('message', system_message, broadcast=True, include_self=False)
+                    socketio.emit('message', system_message, broadcast=True)
                 
             except Exception as e:
                 print(f"Error executing agent chain: {str(e)}")
@@ -339,6 +375,7 @@ def handle_message(data):
         print("Calling agent only.")
     
     # Broadcast the message to all clients except the sender
+    # This prevents message duplication for the original sender
     socketio.emit('message', data, broadcast=True, include_self=False)
 
 @socketio.on('connect')
@@ -355,7 +392,7 @@ def handle_connect():
     # Don't save the system message to the database
     # db.save_message(system_message)
     
-    socketio.emit('message', system_message, broadcast=True, include_self=False)
+    socketio.emit('message', system_message, broadcast=True)
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -371,7 +408,7 @@ def handle_disconnect():
     # Don't save the system message to the database
     # db.save_message(system_message)
     
-    socketio.emit('message', system_message, broadcast=True, include_self=False)
+    socketio.emit('message', system_message, broadcast=True)
 
 # Register a function to close the database connection when the application exits
 def close_db_connection():
