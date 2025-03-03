@@ -7,6 +7,7 @@ from flask_socketio import SocketIO
 from database import MessageDatabase
 from chat.chat import ChatProcessor, default_model
 from agent.agent_chain import AgentChain
+from agent.placeholder_handler import process_template
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-s!e43gmt-key'
@@ -136,7 +137,7 @@ def process_persona_command(data, command, persona_file):
                 'timestamp': datetime.datetime.now().isoformat(),
                 'role': 'System'
             }
-            socketio.emit('message', system_message)
+            socketio.emit('message', system_message, broadcast=True)
             return True
             
         except Exception as e:
@@ -146,7 +147,7 @@ def process_persona_command(data, command, persona_file):
                 'timestamp': datetime.datetime.now().isoformat(),
                 'role': 'System'
             }
-            socketio.emit('message', system_message)
+            socketio.emit('message', system_message, broadcast=True)
             return True
     
     return False
@@ -193,7 +194,7 @@ def handle_user_commands(data):
                 'timestamp': datetime.datetime.now().isoformat(),
                 'role': 'System'
             }
-            socketio.emit('message', system_message)
+            socketio.emit('message', system_message, broadcast=True)
             return True
             
         except Exception as e:
@@ -203,7 +204,7 @@ def handle_user_commands(data):
                 'timestamp': datetime.datetime.now().isoformat(),
                 'role': 'System'
             }
-            socketio.emit('message', system_message)
+            socketio.emit('message', system_message, broadcast=True)
             return True
     
     # Add more command handlers here in the future
@@ -226,7 +227,50 @@ def handle_message(data):
     The Chat-AI has the objective or quickly replying to the user. The Agent-AI has the objective or evaluating the Chat-AI's performance and giving corrective suggestions. Therefore the Chat-AI shall be informed whenever there is a new user message, whereas the Agent-AI shall be informed whenever there is a new Chat-AI message.
     An exception to this rule is when the user specifically wishes to inform only the Agent directly. The user can do so by prefixing their message with "@agent"
     """
-    talkToAgent = True if "@agent" in data.get('message') else False
+    user_message = data.get('message', '')
+    if user_message.lower().startswith('@agent'):
+        # Extract the message part after "@agent"
+        agent_prompt = user_message[7:].strip()
+        
+        # Run the agent chain with the prompt
+        try:
+            print(f"Running agent chain with prompt: {agent_prompt}")
+            agent_chain = AgentChain(db=db)
+            
+            # Process any placeholders in the prompt
+            processed_prompt = process_template(agent_prompt)
+            
+            # Execute the agent chain with the processed prompt
+            result = agent_chain.execute(custom_prompt=processed_prompt)
+            
+            # Log the agent chain execution
+            print(f"Agent Chain Execution Results:")
+            print(f"Action taken: {result.get('action_taken', False)}")
+            
+            # Add a system message to inform the user
+            system_message = {
+                'message': f"Agent chain executed with prompt: '{agent_prompt}'",
+                'timestamp': datetime.datetime.now().isoformat(),
+                'role': 'System'
+            }
+            messages.append(system_message)
+            socketio.emit('message', system_message, broadcast=True, include_self=False)
+            
+            return
+        except Exception as e:
+            error_message = f"Error running agent chain: {str(e)}"
+            print(error_message)
+            system_message = {
+                'message': error_message,
+                'timestamp': datetime.datetime.now().isoformat(),
+                'role': 'System'
+            }
+            messages.append(system_message)
+            socketio.emit('message', system_message, broadcast=True, include_self=False)
+            return
+    
+    # Check for regular @agent mention without making it a direct command
+    talkToAgent = True if "@agent" in user_message else False
     
     # Execute agent chain every third user message
     global user_message_counter
@@ -284,7 +328,7 @@ def handle_message(data):
                         'role': 'System'
                     }
                     
-                    socketio.emit('message', system_message, broadcast=True)
+                    socketio.emit('message', system_message, broadcast=True, include_self=False)
                 
             except Exception as e:
                 print(f"Error executing agent chain: {str(e)}")
@@ -311,7 +355,7 @@ def handle_connect():
     # Don't save the system message to the database
     # db.save_message(system_message)
     
-    socketio.emit('message', system_message, broadcast=True)
+    socketio.emit('message', system_message, broadcast=True, include_self=False)
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -327,7 +371,7 @@ def handle_disconnect():
     # Don't save the system message to the database
     # db.save_message(system_message)
     
-    socketio.emit('message', system_message, broadcast=True)
+    socketio.emit('message', system_message, broadcast=True, include_self=False)
 
 # Register a function to close the database connection when the application exits
 def close_db_connection():
