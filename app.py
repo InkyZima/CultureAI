@@ -6,6 +6,7 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO
 from database import MessageDatabase
 from chat import ChatProcessor, default_model
+from agent.agent_chain import AgentChain
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-s!e43gmt-key'
@@ -22,6 +23,9 @@ messages = []
 
 # Create a injections array to store text to be injected into the conversation between Chat-AI and user
 injections = []
+
+# User message counter to track when to run the agent chain
+user_message_counter = 0
 
 # Load existing messages and injections from the database
 def load_data_from_database():
@@ -220,10 +224,68 @@ def handle_message(data):
     An exception to this rule is when the user specifically wishes to inform only the Agent directly. The user can do so by prefixing their message with "@agent"
     """
     talkToAgent = True if "@agent" in data.get('message') else False
+    
+    # Execute agent chain every third user message
+    global user_message_counter
+    execute_agent_chain = False
+    
+    if data.get('role') == 'User':
+        user_message_counter += 1
+        if user_message_counter % 3 == 0:
+            execute_agent_chain = True
+            print(f"Third user message detected (#{user_message_counter}). Executing agent chain...")
+    
     if data.get('role') == 'User' and not talkToAgent:
         # Process the message with ChatProcessor, passing the entire message history
         # and the injections array
         chat_processor.process_message(data, messages, injections)
+        
+        # Execute the agent chain every third message
+        if execute_agent_chain:
+            try:
+                # Initialize and execute the agent chain
+                agent_chain = AgentChain()
+                
+                # Create a custom prompt based on the current conversation state
+                custom_prompt = f"""
+                Current time: {datetime.datetime.now().isoformat()}
+                The user has sent their {user_message_counter}th message.
+                Last message from user: "{data.get('message')}"
+                
+                Analyze the conversation and decide if any tools should be used to help the user with their cultural practices.
+                """
+                
+                result = agent_chain.execute(custom_prompt)
+                
+                # Log the agent chain execution
+                print(f"Agent Chain Execution Results:")
+                print(f"Action taken: {result.get('action_taken', False)}")
+                
+                if result.get('action_taken', False):
+                    tool_used = result.get('tool_used', 'unknown')
+                    print(f"Tool used: {tool_used}")
+                    
+                    # Add a system message about the agent's action
+                    tool_message = "I notice you might need assistance. "
+                    
+                    if tool_used == "send_notification":
+                        notification = result.get('tool_args', {}).get('message', '')
+                        tool_message += f"I've sent you a notification: '{notification}'"
+                    elif tool_used == "inject_instruction":
+                        instruction = result.get('tool_args', {}).get('instruction', '')
+                        tool_message += f"I'll be providing this guidance soon: '{instruction}'"
+                    
+                    system_message = {
+                        'message': tool_message,
+                        'timestamp': datetime.datetime.now().isoformat(),
+                        'role': 'System'
+                    }
+                    
+                    socketio.emit('message', system_message, broadcast=True)
+                
+            except Exception as e:
+                print(f"Error executing agent chain: {str(e)}")
+            
     elif data.get('role') == 'Chat-AI' or talkToAgent:
         # Inform the agent about the chat-AI's response, passing the entire message history
         # agent.receive_user_message(data, messages)

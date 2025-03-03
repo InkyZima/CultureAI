@@ -1,12 +1,8 @@
 """
 Here is the workflow/chain for tool execution:
-1. A thinking model gets called. It shall consider all context information to decide if and which tool to execute. It returns its decision, along with the information which tool to use and with which input.
-2. A non-thinking model gets called with the output of the thinking model. It shall turn this output into a standard json tool call. This shall be its output.
-3. In code, the tool gets called using this output of the non-thinking model.
-
-The 1. step is implemented in thinking_agent.py.
-The 2. step is implemented in calling_agent.py.
-Everything (including step 3. / calling the tool) comes together in this file.
+- A thinking model gets called. It shall consider all context information to decide if and which tool to execute. It returns its decision, along with the information which tool to use and with which input.
+- In this file, the tool-calling output from the thinking model is deconstructed (manually), and the tool is called.
+- After the tool was called and retured a result/output, the thinking model gets called again (loop, until it decides not to call another tool or maximum up to 5 times), with the additional context of its last decision, tool call and tool output. 
 """
 
 import os

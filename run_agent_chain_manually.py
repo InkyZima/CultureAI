@@ -46,7 +46,7 @@ def main():
     """
     
     # Execute the agent chain with the custom prompt
-    result = agent_chain.execute()
+    result = agent_chain.execute(custom_prompt)
     
     # Print the result with nice formatting
     print_with_highlights("Agent Chain Execution Results:", result)
