@@ -72,6 +72,9 @@ class SocketHandlers:
         Args:
             data (dict): The message data
         """
+        # (Re)Set the timestamp
+        data['timestamp'] = datetime.datetime.now().isoformat()
+        
         # Save the message to the database and memory
         self.message_manager.add_message(data)
         
