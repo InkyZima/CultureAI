@@ -8,14 +8,16 @@ load_dotenv()
 
 # Configure the Gemini API with the API key from .env
 api_key = os.getenv("GOOGLE_API_KEY")
-default_model = os.getenv("DEFAULT_MODEL")
+chat_model = os.getenv("CHAT_MODEL")
 
 if not api_key:
     raise ValueError("GOOGLE_API_KEY environment variable not found. Please check your .env file.")
 
-if not default_model:
-    default_model = "gemini-2.0-flash"  # Fallback model if not specified
-    print(f"DEFAULT_MODEL not specified. Using fallback model: {default_model}")
+if not chat_model:
+    chat_model = os.getenv("chat_model")
+    if not chat_model:
+        chat_model = "gemini-2.0-flash"  # Fallback model if not specified
+        print(f"Neither CHAT_MODEL nor chat_model not specified. Using fallback model: {chat_model}")
 
 # Configure the Gemini API
 genai.configure(api_key=api_key)
@@ -77,13 +79,13 @@ class ChatProcessor:
         """Initialize the chat processor with SocketIO instance and optional database."""
         self.socketio = socketio
         self.db = db
-        self.default_model = default_model
-        self.model = genai.GenerativeModel(default_model)
+        self.chat_model = chat_model
+        self.model = genai.GenerativeModel(chat_model)
         self.chat_sessions = {}  # Store chat sessions by user id/session
         self.system_prompt = get_system_prompt()
         self.system_prompt_preflight = get_system_prompt_preflight()
         self.injection_string = get_injection_string()
-        print(f"ChatProcessor initialized with model: {default_model}")
+        print(f"ChatProcessor initialized with model: {chat_model}")
     
     def set_database(self, db):
         """Set the database instance."""
@@ -199,7 +201,7 @@ class ChatProcessor:
             'message': llm_response_text,
             'timestamp': datetime.datetime.now().isoformat(),
             'role': 'Chat-AI',
-            'model': self.default_model
+            'model': self.chat_model
         }
         
         return response

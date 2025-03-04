@@ -39,7 +39,7 @@ class SocketHandlers:
         
         # Create system message for new user
         system_message = {
-            'message': f'You are talking to: {self.chat_processor.default_model}.',
+            'message': f'You are talking to: {self.chat_processor.chat_model}.',
             'timestamp': datetime.datetime.now().isoformat(),
             'role': 'System'
         }

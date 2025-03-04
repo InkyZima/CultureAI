@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Chat App</title>
+    <!-- Add Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <!-- Add marked.js for markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- Add highlight.js for code syntax highlighting -->
@@ -11,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/highlight.min.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', 'Helvetica Neue', sans-serif;
             margin: 0;
             padding: 0;
             display: flex;
@@ -20,6 +24,7 @@
             max-width: 800px;
             margin: 0 auto;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            line-height: 1.5;
         }
         .chat-container {
             flex-grow: 1;
@@ -28,38 +33,46 @@
             background-color: #f9f9f9;
         }
         .message {
-            margin-bottom: 10px;
-            padding: 10px;
+            margin-bottom: 16px;
+            padding: 12px;
             border-radius: 5px;
             max-width: 80%;
             word-wrap: break-word;
+            line-height: 1.5;
         }
         .message-info {
             display: flex;
             justify-content: space-between;
-            font-size: 0.8em;
-            margin-bottom: 5px;
+            font-size: 0.85em;
+            margin-bottom: 6px;
             color: #666;
         }
         .message-role {
-            font-weight: bold;
+            font-weight: 500;
         }
         .message-timestamp {
             font-style: italic;
         }
         .message-content {
-            margin-top: 5px;
+            margin-top: 8px;
+            line-height: 1.6;
         }
         /* Style for markdown-rendered content */
         .message-content h1, .message-content h2, .message-content h3 {
-            margin-top: 0.5em;
-            margin-bottom: 0.5em;
+            margin-top: 0.8em;
+            margin-bottom: 0.6em;
+            line-height: 1.4;
+        }
+        .message-content p {
+            margin-bottom: 1em;
+            line-height: 1.6;
         }
         .message-content pre {
             background-color: #f0f0f0;
-            padding: 0.5em;
+            padding: 0.8em;
             border-radius: 4px;
             overflow-x: auto;
+            margin: 0.8em 0;
         }
         .message-content code {
             font-family: monospace;
@@ -72,21 +85,28 @@
             background-color: transparent;
         }
         .message-content ul, .message-content ol {
-            padding-left: 20px;
+            padding-left: 24px;
+            margin: 0.8em 0;
+            line-height: 1.6;
+        }
+        .message-content li {
+            margin-bottom: 0.5em;
         }
         .message-content blockquote {
             border-left: 4px solid #ddd;
-            padding-left: 10px;
+            padding-left: 12px;
             margin-left: 0;
             color: #666;
+            margin: 1em 0;
         }
         .message-content table {
             border-collapse: collapse;
             width: 100%;
+            margin: 1em 0;
         }
         .message-content th, .message-content td {
             border: 1px solid #ddd;
-            padding: 8px;
+            padding: 10px;
         }
         .message-content a {
             color: #2962FF;
@@ -117,16 +137,19 @@
         }
         .input-container {
             display: flex;
-            padding: 10px;
+            padding: 12px;
             background-color: white;
             border-top: 1px solid #ddd;
         }
         #message-input {
             flex-grow: 1;
-            padding: 10px;
+            padding: 12px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            margin-right: 10px;
+            margin-right: 12px;
+            font-family: 'Roboto', 'Helvetica Neue', sans-serif;
+            font-size: 1em;
+            line-height: 1.5;
         }
         #send-button {
             padding: 10px 20px;
@@ -135,6 +158,8 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            font-family: 'Roboto', 'Helvetica Neue', sans-serif;
+            font-weight: 500;
         }
         #send-button:hover {
             background-color: #45a049;
@@ -199,64 +224,60 @@
                 const messageInfo = document.createElement('div');
                 messageInfo.classList.add('message-info');
                 
-                // Add role
-                const roleElement = document.createElement('span');
-                roleElement.classList.add('message-role');
-                roleElement.textContent = data.role;
-                messageInfo.appendChild(roleElement);
+                const messageRole = document.createElement('span');
+                messageRole.classList.add('message-role');
+                messageRole.textContent = data.role;
                 
-                // Add timestamp
-                const timestampElement = document.createElement('span');
-                timestampElement.classList.add('message-timestamp');
-                timestampElement.textContent = formatTimestamp(data.timestamp);
-                messageInfo.appendChild(timestampElement);
+                const messageTimestamp = document.createElement('span');
+                messageTimestamp.classList.add('message-timestamp');
+                messageTimestamp.textContent = formatTimestamp(data.timestamp);
                 
-                // Add message content
-                const contentElement = document.createElement('div');
-                contentElement.classList.add('message-content');
+                messageInfo.appendChild(messageRole);
+                messageInfo.appendChild(messageTimestamp);
+                messageElement.appendChild(messageInfo);
                 
-                // Parse markdown for AI messages, use plain text for user messages
+                // Create message content element
+                const messageContent = document.createElement('div');
+                messageContent.classList.add('message-content');
+                
+                // Parse markdown if the role is Chat-AI or Agent-AI
                 if (data.role === 'Chat-AI' || data.role === 'Agent-AI') {
-                    contentElement.innerHTML = parseMarkdown(data.message);
+                    messageContent.innerHTML = parseMarkdown(data.message);
                 } else {
-                    contentElement.textContent = data.message;
+                    messageContent.textContent = data.message;
                 }
                 
-                // Assemble the message
-                messageElement.appendChild(messageInfo);
-                messageElement.appendChild(contentElement);
-                
+                messageElement.appendChild(messageContent);
                 chatContainer.appendChild(messageElement);
                 
-                // Apply syntax highlighting to any code blocks
-                messageElement.querySelectorAll('pre code').forEach((block) => {
-                    hljs.highlightBlock(block);
-                });
-                
-                // Scroll to the bottom
+                // Scroll to the bottom of the chat container
                 chatContainer.scrollTop = chatContainer.scrollHeight;
+                
+                // Apply syntax highlighting to code blocks
+                document.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
             }
 
-            // Handle the send button click
+            // Function to send a message
             function sendMessage() {
-                const messageText = messageInput.value.trim();
-                if (messageText) {
-                    // Create message object
-                    const messageData = {
-                        message: messageText,
-                        timestamp: new Date().toISOString(),
-                        role: 'User'
-                    };
-                    
-                    // Send the message to the server
-                    socket.emit('message', messageData);
-                    
-                    // Add the message to the chat container
-                    addMessage(messageData);
-                    
-                    // Clear the input field
-                    messageInput.value = '';
-                }
+                const message = messageInput.value.trim();
+                if (message.length === 0) return;
+                
+                const messageData = {
+                    message: message,
+                    timestamp: new Date().toISOString(),
+                    role: 'User'
+                };
+                
+                // Emit the message to the server
+                socket.emit('message', messageData);
+                
+                // Add the message to the chat container for the sender
+                addMessage(messageData);
+                
+                // Clear the input field
+                messageInput.value = '';
             }
 
             // Event listeners
@@ -266,21 +287,14 @@
                     sendMessage();
                 }
             });
-
-            // Listen for incoming messages from the server
+            
+            // Listen for messages from the server
             socket.on('message', function(data) {
                 addMessage(data);
             });
-
-            // Listen for connection event
-            socket.on('connect', function() {
-                console.log('Connected to server');
-            });
-
-            // Listen for disconnection event
-            socket.on('disconnect', function() {
-                console.log('Disconnected from server');
-            });
+            
+            // Focus on the input field when the page loads
+            messageInput.focus();
         });
     </script>
 </body>
