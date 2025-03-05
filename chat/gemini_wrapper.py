@@ -28,7 +28,7 @@ class GeminiSession:
         self.history = history or []
         self.api_key = os.getenv("GOOGLE_API_KEY")
         self.model_name = os.getenv("CHAT_MODEL") or "gemini-2.0-flash"
-        self.base_url = f"https://generativelanguage.googleapis.com/v1/models/{self.model_name}"
+        self.base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}"
         
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY environment variable not found. Please check your .env file.")
@@ -51,7 +51,14 @@ class GeminiSession:
         
         # Create the request body
         data = {
-            "contents": self.history
+            "contents": self.history,
+            "generationConfig": {
+                "temperature": 0.7,
+                "topK": 40,
+                "topP": 0.95,
+                "maxOutputTokens": 2048,
+                "stopSequences": []
+            }
         }
         
         # Retry logic for rate limiting or temporary failures
@@ -72,6 +79,7 @@ class GeminiSession:
                 if response.status_code != 200:
                     error_msg = f"API request failed with status {response.status_code}: {response.text}"
                     print(error_msg)
+                    print(f"Request data: {json.dumps(data, indent=2)}")
                     raise Exception(error_msg)
                     
                 response_json = response.json()
@@ -124,7 +132,7 @@ class GenerativeModel:
         """Initialize a model with the given name"""
         self.model_name = model_name
         self.api_key = os.getenv("GOOGLE_API_KEY")
-        self.base_url = f"https://generativelanguage.googleapis.com/v1/models/{self.model_name}"
+        self.base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}"
         
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY environment variable not found. Please check your .env file.")
@@ -146,7 +154,14 @@ class GenerativeModel:
             "contents": [{
                 "role": "user",
                 "parts": [{"text": prompt}]
-            }]
+            }],
+            "generationConfig": {
+                "temperature": 0.7,
+                "topK": 40,
+                "topP": 0.95,
+                "maxOutputTokens": 2048,
+                "stopSequences": []
+            }
         }
         
         # Retry logic for rate limiting or temporary failures
@@ -167,6 +182,9 @@ class GenerativeModel:
                 if response.status_code != 200:
                     error_msg = f"API request failed with status {response.status_code}: {response.text}"
                     print(error_msg)
+                    print(f"Request data: {json.dumps(data, indent=2)}")
+                    print(f"Request headers: {headers}")
+                    print(f"Request URL: {url}")
                     raise Exception(error_msg)
                     
                 response_json = response.json()

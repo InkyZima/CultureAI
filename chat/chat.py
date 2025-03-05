@@ -190,7 +190,16 @@ class ChatProcessor:
         
         # Format message to include timestamp and injection string (with further instruction for the LLM)
         injection_content = custom_injection.get('injection', self.injection_string) if custom_injection else self.injection_string
-        formatted_message = f"[{datetime.datetime.fromisoformat(timestamp).strftime('%H:%M')}] [System instruction: {injection_content}] \n\n {user_message}"
+        
+        # Fix for Raspberry Pi: Ensure timestamp is compatible with datetime.fromisoformat
+        try:
+            formatted_time = datetime.datetime.fromisoformat(timestamp).strftime('%H:%M')
+        except (ValueError, TypeError):
+            # Fallback for invalid timestamp formats
+            print(f"Warning: Invalid timestamp format '{timestamp}', using current time")
+            formatted_time = datetime.datetime.now().strftime('%H:%M')
+            
+        formatted_message = f"[{formatted_time}] [System instruction: {injection_content}] \n\n {user_message}"
         print(f"Sending message to Gemini: '{formatted_message}'")
         
         # Send to Gemini
@@ -204,9 +213,16 @@ class ChatProcessor:
         llm_response_text = re.sub(r'^\s*\[\d{1,2}:\d{1,2}\]\s*', '', llm_response_text)
         
         # Create a response message
+        # Ensure proper timezone handling for Raspberry Pi compatibility
+        try:
+            current_time = datetime.datetime.now().replace(microsecond=0).isoformat()
+        except Exception:
+            # Simple fallback if the above doesn't work
+            current_time = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+            
         response = {
             'message': llm_response_text,
-            'timestamp': datetime.datetime.now().isoformat(),
+            'timestamp': current_time,
             'role': 'Chat-AI',
             'model': self.chat_model
         }
@@ -215,13 +231,21 @@ class ChatProcessor:
     
     def _handle_error(self, exception, timestamp):
         """Handle errors during message processing."""
-        error_msg = f"Error processing message with Gemini: {str(exception)}"
-        print(error_msg)
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error processing message: {str(exception)}")
+        print(error_trace)
         
-        # Create an error response
+        # Ensure proper timestamp format for Raspberry Pi compatibility
+        try:
+            current_time = datetime.datetime.now().replace(microsecond=0).isoformat()
+        except Exception:
+            # Simple fallback
+            current_time = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+            
         error_response = {
-            'message': f"Sorry, I encountered an error: {str(exception)}",
-            'timestamp': timestamp,
+            'message': f"Sorry, I encountered an error: {str(exception)}. Please try again later.",
+            'timestamp': current_time,
             'role': 'System',
             'error': True
         }

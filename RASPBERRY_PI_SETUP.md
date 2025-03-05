@@ -45,6 +45,8 @@ Replace `your_google_api_key_here` with your actual Google API key.
 python app.py
 ```
 
+The application will be available at `http://<raspberry-pi-ip>:5000` where `<raspberry-pi-ip>` is the IP address of your Raspberry Pi.
+
 ## Running the Agent
 
 To run the agent functionality:
@@ -65,6 +67,10 @@ This version of CultureAI has been modified to be compatible with Python 3.7 on 
 
 4. **Support for All Use Cases**: The wrapper implements both chat functionality (`start_chat` and `send_message`) and the single-prompt functionality (`generate_content`) used by the thinking agent.
 
+5. **Robust Error Handling**: The code includes improved error handling and timestamp processing to handle different timestamp formats correctly.
+
+6. **Network Accessibility**: The Flask app is configured to listen on all network interfaces (`host='0.0.0.0'`), making it accessible from other devices on your network.
+
 ## Testing the Wrapper
 
 You can test that the custom wrapper is working correctly by running:
@@ -79,7 +85,7 @@ This will verify that both chat functionality and the `generate_content` method 
 
 If you encounter any issues:
 
-1. **Connection issues**: Make sure your API key is correct and that your Raspberry Pi has internet access.
+1. **Connection issues**: Make sure your API key is correct and that your Raspberry Pi has internet access. You may have to add host='0.0.0.0' to socketio.run
 
 2. **ImportError**: Ensure that all dependencies are installed correctly.
 
@@ -90,6 +96,10 @@ If you encounter any issues:
 5. **'No module named google.generativeai'**: This is expected when running on Python 3.7. The application will automatically use the custom wrapper instead.
 
 6. **THINKING_MODEL environment variable**: If you see errors about the thinking agent, make sure you've set the `THINKING_MODEL` environment variable in your `.env` file.
+
+7. **API errors**: If you see "Invalid value at 'contents[0].parts[0]'" errors, this is likely due to the timestamp format. The latest version fixes this issue.
+
+8. **WebSocket issues**: If you encounter WebSocket connection problems, make sure the `simple-websocket` package is installed.
 
 ## Limitations
 

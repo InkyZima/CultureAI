@@ -92,7 +92,12 @@ atexit.register(close_db_connection)
 if __name__ == '__main__':
     try:
         # Run the Flask application
-        socketio.run(app, debug=True)
+        print("Starting CultureAI application...")
+        print("Access the chat interface at http://localhost:5000 or http://<your-ip>:5000")
+        
+        # Use host='0.0.0.0' to make the app accessible from other devices on the network
+        # This is important for Raspberry Pi deployments
+        socketio.run(app, debug=True, host='0.0.0.0')
     finally:
         # Close the database connection
         close_db_connection()
