@@ -50,6 +50,7 @@ def test_simple_request():
     print(f"\nResponse received in {elapsed_time:.2f} seconds:")
     print("-" * 50)
     print(response.text)
+    print(f"Timestamp: {response.timestamp}")
     print("-" * 50)
     
     # Send a follow-up message to test history handling
@@ -62,6 +63,36 @@ def test_simple_request():
     print(f"\nResponse received in {elapsed_time:.2f} seconds:")
     print("-" * 50)
     print(response.text)
+    print(f"Timestamp: {response.timestamp}")
+    print("-" * 50)
+    
+    return True
+
+def test_generate_content():
+    """Test the generate_content method used by the thinking agent"""
+    model_name = os.getenv("CHAT_MODEL") or "gemini-2.0-flash"
+    print(f"Using model: {model_name} for generate_content test")
+    
+    # Create a model instance
+    model = genai.GenerativeModel(model_name)
+    
+    # Send a test prompt
+    print("\nSending test prompt for generate_content...")
+    start_time = time.time()
+    
+    test_prompt = """
+    Question: What is the capital of France?
+    Please provide a short answer.
+    """
+    
+    response = model.generate_content(test_prompt)
+    elapsed_time = time.time() - start_time
+    
+    # Print the response
+    print(f"\nResponse received in {elapsed_time:.2f} seconds:")
+    print("-" * 50)
+    print(response.text)
+    print(f"Timestamp: {response.timestamp}")
     print("-" * 50)
     
     return True
@@ -73,6 +104,9 @@ if __name__ == "__main__":
         result = test_simple_request()
         if result:
             print("\nTest completed successfully! The custom wrapper is working as expected.")
+        result = test_generate_content()
+        if result:
+            print("\nTest completed successfully! The generate_content method is working as expected.")
     except Exception as e:
         print(f"\nTest failed: {str(e)}")
         sys.exit(1)
