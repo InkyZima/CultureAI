@@ -1,13 +1,9 @@
 import datetime
 import os
-try:
-    # Try to import the official SDK first
-    import google.generativeai as genai
-    print("Using official Google Generative AI SDK")
-except ImportError:
-    # Fall back to our custom wrapper for Python 3.7
-    from chat.gemini_wrapper import GeminiModule as genai
-    print("Using custom Gemini wrapper for Python 3.7 compatibility")
+
+# Fall back to our custom wrapper for Python 3.7
+from chat.gemini_wrapper import GeminiModule as genai
+print("Using custom Gemini wrapper for Python 3.7 compatibility")
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -27,7 +23,7 @@ if not chat_model:
         print(f"Neither CHAT_MODEL nor chat_model not specified. Using fallback model: {chat_model}")
 
 # Configure the Gemini API
-genai.configure(api_key=api_key)
+genai.configure(key=api_key)
 
 # Read the system prompt from file
 SYSTEM_PROMPT_PATH = os.path.join("system_prompts", "system_prompt.txt")

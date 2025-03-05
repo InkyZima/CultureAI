@@ -6,116 +6,137 @@ Python 3.9+.
 """
 
 import os
-import json
+import sys
 import time
+import json
 import datetime
 import requests
 from typing import Dict, List, Any, Optional
+from types import SimpleNamespace
 
 # Capture local timezone for consistent timestamp formatting
 try:
-    LOCAL_TIMEZONE = datetime.datetime.now().astimezone().tzinfo
-except Exception:
-    # Fallback for Python 3.7 where astimezone() without argument might not be well supported
     import tzlocal
+    import pytz
+except ImportError:
+    print("Warning: tzlocal or pytz not installed. Using UTC for timestamps.")
+    LOCAL_TIMEZONE = None
+else:
     LOCAL_TIMEZONE = tzlocal.get_localzone()
 
+# Base URL for the v1beta API
+BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+
+# Global configuration
+api_key = os.getenv("GOOGLE_API_KEY")
+model_name = os.getenv("CHAT_MODEL") or "gemini-2.0-flash"
+model_url = model_name
+
+# Standard generation configuration
+generation_config = {
+    "temperature": 0.7,
+    "topK": 40,
+    "topP": 0.95,
+    "maxOutputTokens": 2048,
+    "stopSequences": []
+}
+
+def send_request_with_retries(url, data, max_retries=3):
+    """Helper function to send request with retry logic"""
+    headers = {"Content-Type": "application/json"}
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            response = requests.post(url, headers=headers, json=data, timeout=30)
+            
+            # Handle rate limiting (429) or server errors (5xx)
+            if response.status_code == 429 or (response.status_code >= 500 and response.status_code < 600):
+                retry_count += 1
+                wait_time = min(2 ** retry_count, 60)  # Exponential backoff with max of 60 seconds
+                print(f"Rate limited or server error. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+                continue
+            
+            if response.status_code != 200:
+                error_msg = f"API request failed with status {response.status_code}: {response.text}"
+                print(error_msg)
+                print(f"Request data: {json.dumps(data, indent=2)}")
+                raise Exception(error_msg)
+                
+            return response.json()
+                
+        except requests.exceptions.Timeout:
+            retry_count += 1
+            wait_time = min(2 ** retry_count, 60)
+            print(f"Request timed out. Retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
+        except Exception as e:
+            print(f"Unexpected error: {str(e)}")
+            retry_count += 1
+            time.sleep(min(2 ** retry_count, 60))
+    
+    raise Exception(f"Failed after {max_retries} retries")
+
 class GeminiSession:
-    """A wrapper for Gemini chat sessions compatible with Python 3.7"""
+    """A chat session with the Gemini API"""
     
     def __init__(self, history=None):
-        """Initialize a new chat session with optional history"""
-        self.history = history or []
-        self.api_key = os.getenv("GOOGLE_API_KEY")
-        self.model_name = os.getenv("CHAT_MODEL") or "gemini-2.0-flash"
-        self.base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}"
+        """Initialize a chat session with optional history"""
+        self.messages = history or []
+        self.api_key = api_key
+        self.model_name = model_name
+        self.base_url = f"{BASE_URL}/{self.model_name}"
+        self.generation_config = generation_config
         
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY environment variable not found. Please check your .env file.")
     
-    def send_message(self, message: str, max_retries=3) -> 'GeminiResponse':
-        """Send a message and get a response from the Gemini API"""
-        # Add the user message to history with timestamp
-        current_time = datetime.datetime.now(LOCAL_TIMEZONE).isoformat()
-        self.history.append({
-            "role": "user", 
-            "parts": [{"text": message}],
-            "timestamp": current_time
-        })
+    def send_message(self, message_text):
+        """Send a message to the chat session and return the response"""
+        # Convert message to proper format for v1beta API
+        message = {
+            'role': 'user',
+            'parts': [{'text': message_text}]
+        }
+        self.messages.append(message)
         
-        # Prepare the request
         url = f"{self.base_url}:generateContent?key={self.api_key}"
-        headers = {
-            "Content-Type": "application/json"
+        # Prepare the request data with formatted messages
+        request_data = {
+            'contents': self.messages,
+            'generationConfig': self.generation_config
         }
+
+        # Uncomment for debugging
+        print(f"Request data: {json.dumps(request_data, indent=2)}")
         
-        # Create the request body
-        data = {
-            "contents": self.history,
-            "generationConfig": {
-                "temperature": 0.7,
-                "topK": 40,
-                "topP": 0.95,
-                "maxOutputTokens": 2048,
-                "stopSequences": []
-            }
-        }
+        # Send the request with retries
+        response_data = send_request_with_retries(url, request_data)
         
-        # Retry logic for rate limiting or temporary failures
-        retry_count = 0
-        while retry_count < max_retries:
-            try:
-                # Make the request
-                response = requests.post(url, headers=headers, json=data, timeout=30)
-                
-                # Handle rate limiting (429) or server errors (5xx)
-                if response.status_code == 429 or (response.status_code >= 500 and response.status_code < 600):
-                    retry_count += 1
-                    wait_time = min(2 ** retry_count, 60)  # Exponential backoff with max of 60 seconds
-                    print(f"Rate limited or server error. Retrying in {wait_time} seconds...")
-                    time.sleep(wait_time)
-                    continue
-                
-                if response.status_code != 200:
-                    error_msg = f"API request failed with status {response.status_code}: {response.text}"
-                    print(error_msg)
-                    print(f"Request data: {json.dumps(data, indent=2)}")
-                    raise Exception(error_msg)
+        if 'candidates' in response_data and len(response_data['candidates']) > 0:
+            # Extract and format the assistant's response
+            candidate = response_data['candidates'][0]
+            if 'content' in candidate:
+                content = candidate['content']
+                if 'parts' in content and len(content['parts']) > 0:
+                    text = content['parts'][0].get('text', '')
                     
-                response_json = response.json()
-                
-                # Extract the response text
-                try:
-                    response_text = response_json['candidates'][0]['content']['parts'][0]['text']
+                    # Create a response object to mimic the official SDK
+                    response = SimpleNamespace()
+                    response.text = text
                     
-                    # Add the response to history with timestamp
-                    current_time = datetime.datetime.now(LOCAL_TIMEZONE).isoformat()
-                    self.history.append({
-                        "role": "model", 
-                        "parts": [{"text": response_text}],
-                        "timestamp": current_time
-                    })
+                    # Save the assistant's response to history
+                    assistant_message = {
+                        'role': 'model',
+                        'parts': [{'text': text}]
+                    }
+                    self.messages.append(assistant_message)
                     
-                    # Return a response object
-                    return GeminiResponse(response_text)
-                except (KeyError, IndexError) as e:
-                    error_msg = f"Failed to extract response text: {e}. Response: {response_json}"
-                    print(error_msg)
-                    raise Exception(error_msg)
-                    
-            except requests.exceptions.Timeout:
-                retry_count += 1
-                wait_time = min(2 ** retry_count, 60)
-                print(f"Request timed out. Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-            except requests.exceptions.RequestException as e:
-                retry_count += 1
-                wait_time = min(2 ** retry_count, 60)
-                print(f"Request error: {e}. Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
+                    return response
         
-        # If we've exhausted all retries
-        raise Exception(f"Failed to get response after {max_retries} retries")
+        # Handle error cases
+        raise Exception(f"Failed to get valid response from API: {json.dumps(response_data, indent=2)}")
 
 class GeminiResponse:
     """A wrapper for Gemini API responses"""
@@ -126,102 +147,87 @@ class GeminiResponse:
         self.timestamp = datetime.datetime.now(LOCAL_TIMEZONE).isoformat()
 
 class GenerativeModel:
-    """A wrapper for the Gemini GenerativeModel class"""
+    """A wrapper for Gemini API generative models"""
     
     def __init__(self, model_name):
         """Initialize a model with the given name"""
         self.model_name = model_name
-        self.api_key = os.getenv("GOOGLE_API_KEY")
-        self.base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}"
+        self.api_key = api_key
+        self.base_url = f"{BASE_URL}/{self.model_name}"
         
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY environment variable not found. Please check your .env file.")
     
     def start_chat(self, history=None):
         """Start a new chat session with optional history"""
-        return GeminiSession(history)
+        # Ensure history has the correct format for v1beta API
+        if history is not None:
+            # Convert any string parts to proper format with text key
+            formatted_history = []
+            for msg in history:
+                if 'parts' in msg:
+                    parts = []
+                    for part in msg['parts']:
+                        if isinstance(part, str):
+                            parts.append({'text': part})
+                        else:
+                            parts.append(part)
+                    formatted_history.append({
+                        'role': msg['role'],
+                        'parts': parts
+                    })
+                else:
+                    formatted_history.append(msg)
+            return GeminiSession(formatted_history)
+        return GeminiSession()
     
     def generate_content(self, prompt, max_retries=3):
         """Generate content from a prompt (non-chat mode)"""
-        # Prepare the request
         url = f"{self.base_url}:generateContent?key={self.api_key}"
-        headers = {
-            "Content-Type": "application/json"
-        }
         
-        # Create the request body - single prompt instead of chat history
-        data = {
-            "contents": [{
-                "role": "user",
-                "parts": [{"text": prompt}]
-            }],
-            "generationConfig": {
-                "temperature": 0.7,
-                "topK": 40,
-                "topP": 0.95,
-                "maxOutputTokens": 2048,
-                "stopSequences": []
+        # If prompt is a string, convert to proper format
+        if isinstance(prompt, str):
+            data = {
+                "contents": [{
+                    "role": "user",
+                    "parts": [{"text": prompt}]
+                }],
+                "generationConfig": generation_config
             }
-        }
+        else:
+            # Assume prompt is already formatted correctly
+            data = {
+                "contents": prompt,
+                "generationConfig": generation_config
+            }
         
-        # Retry logic for rate limiting or temporary failures
-        retry_count = 0
-        while retry_count < max_retries:
-            try:
-                # Make the request
-                response = requests.post(url, headers=headers, json=data, timeout=60)  # Longer timeout for thinking
-                
-                # Handle rate limiting (429) or server errors (5xx)
-                if response.status_code == 429 or (response.status_code >= 500 and response.status_code < 600):
-                    retry_count += 1
-                    wait_time = min(2 ** retry_count, 60)  # Exponential backoff with max of 60 seconds
-                    print(f"Rate limited or server error. Retrying in {wait_time} seconds...")
-                    time.sleep(wait_time)
-                    continue
-                
-                if response.status_code != 200:
-                    error_msg = f"API request failed with status {response.status_code}: {response.text}"
-                    print(error_msg)
-                    print(f"Request data: {json.dumps(data, indent=2)}")
-                    print(f"Request headers: {headers}")
-                    print(f"Request URL: {url}")
-                    raise Exception(error_msg)
+        # Send the request with retries
+        response_data = send_request_with_retries(url, data, max_retries)
+        
+        # Extract the response text
+        if 'candidates' in response_data and len(response_data['candidates']) > 0:
+            candidate = response_data['candidates'][0]
+            if 'content' in candidate:
+                content = candidate['content']
+                if 'parts' in content and len(content['parts']) > 0:
+                    text = content['parts'][0].get('text', '')
                     
-                response_json = response.json()
-                
-                # Extract the response text
-                try:
-                    response_text = response_json['candidates'][0]['content']['parts'][0]['text']
-                    current_time = datetime.datetime.now(LOCAL_TIMEZONE).isoformat()
-                    response = GeminiResponse(response_text)
-                    response.timestamp = current_time
+                    # Create a response object
+                    response = SimpleNamespace()
+                    response.text = text
                     return response
-                except (KeyError, IndexError) as e:
-                    error_msg = f"Failed to extract response text: {e}. Response: {response_json}"
-                    print(error_msg)
-                    raise Exception(error_msg)
-                    
-            except requests.exceptions.Timeout:
-                retry_count += 1
-                wait_time = min(2 ** retry_count, 60)
-                print(f"Request timed out. Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-            except requests.exceptions.RequestException as e:
-                retry_count += 1
-                wait_time = min(2 ** retry_count, 60)
-                print(f"Request error: {e}. Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
         
-        # If we've exhausted all retries
-        raise Exception(f"Failed to get response after {max_retries} retries")
+        raise Exception(f"Failed to get valid response from API: {json.dumps(response_data, indent=2)}")
 
 # Module-level functions to maintain API compatibility
-def configure(api_key=None):
-    """Set the API key (for compatibility with the official SDK)"""
-    if api_key:
-        os.environ["GOOGLE_API_KEY"] = api_key
+def configure(key=None):
+    """Configure the Gemini API with the given API key"""
+    global api_key
+    if key:
+        api_key = key
 
 # Create a module-level namespace for backward compatibility
 class GeminiModule:
+    """A namespace for Gemini API functions"""
     GenerativeModel = GenerativeModel
     configure = configure

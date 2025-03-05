@@ -55,6 +55,27 @@ To run the agent functionality:
 python run_agent.py --prompt "send the user a test notification"
 ```
 
+## Recent Updates (March 2025)
+
+This version of CultureAI has been significantly improved for Raspberry Pi compatibility:
+
+1. **Enhanced Gemini API Wrapper**: The custom wrapper has been completely rewritten using direct HTTP requests to the Gemini v1beta API.
+
+2. **Improved Message Format Handling**: Fixed issues with message format and parts structure for the v1beta API.
+
+3. **Comprehensive Testing**: Added multiple test scripts in the `tests` directory to verify API compatibility:
+   - `test_formatted_message.py`: Tests the message formatting pattern
+   - `test_chat_session.py`: Tests the full chat session initialization
+   - `test_chat_flow.py`: Tests the entire chat processing flow
+
+4. **Robust Timestamp Handling**: Added improved fallback mechanisms for timestamp parsing and formatting.
+
+5. **Network Accessibility**: Ensured Flask app is accessible on the network by default.
+
+6. **Updated Dependencies**: Added `tzlocal` and `pytz` for consistent timezone handling.
+
+7. **Removed SDK Dependency**: The application no longer attempts to use the official Google SDK, simplifying the codebase.
+
 ## How it works
 
 This version of CultureAI has been modified to be compatible with Python 3.7 on Raspberry Pi:
@@ -93,13 +114,17 @@ If you encounter any issues:
 
 4. **Log files**: Check the log files for detailed error messages if the application doesn't start properly.
 
-5. **'No module named google.generativeai'**: This is expected when running on Python 3.7. The application will automatically use the custom wrapper instead.
+5. **'No module named google.generativeai'**: This is expected when running on Python 3.7. The application now directly uses the custom wrapper.
 
 6. **THINKING_MODEL environment variable**: If you see errors about the thinking agent, make sure you've set the `THINKING_MODEL` environment variable in your `.env` file.
 
-7. **API errors**: If you see "Invalid value at 'contents[0].parts[0]'" errors, this is likely due to the timestamp format. The latest version fixes this issue.
+7. **Message format errors**: If you see message format errors, ensure you're using the latest version of the code. The v1beta API requires parts to have a "text" key instead of direct strings.
 
 8. **WebSocket issues**: If you encounter WebSocket connection problems, make sure the `simple-websocket` package is installed.
+
+9. **Timezone errors**: If you see errors related to timezone handling, ensure the `tzlocal` and `pytz` packages are installed.
+
+10. **API request errors**: The application now includes detailed debugging output for API requests. Check the console for request data and error messages.
 
 ## Limitations
 
