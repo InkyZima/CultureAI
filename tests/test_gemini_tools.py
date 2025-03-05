@@ -2,9 +2,20 @@
 Test the Google Generative AI API with tools
 """
 import os
-import google.generativeai as genai
-from dotenv import load_dotenv
+import sys
 import json
+
+try:
+    # Try to import the official SDK first
+    import google.generativeai as genai
+    print("Using official Google Generative AI SDK in tests")
+except ImportError:
+    # Fall back to our custom wrapper for Python 3.7
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from chat.gemini_wrapper import GeminiModule as genai
+    print("Using custom Gemini wrapper for Python 3.7 compatibility in tests")
+
+from dotenv import load_dotenv
 import inspect
 
 # Load environment variables

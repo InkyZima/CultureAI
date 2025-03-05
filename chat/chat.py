@@ -1,6 +1,13 @@
 import datetime
 import os
-import google.generativeai as genai
+try:
+    # Try to import the official SDK first
+    import google.generativeai as genai
+    print("Using official Google Generative AI SDK")
+except ImportError:
+    # Fall back to our custom wrapper for Python 3.7
+    from chat.gemini_wrapper import GeminiModule as genai
+    print("Using custom Gemini wrapper for Python 3.7 compatibility")
 from dotenv import load_dotenv
 
 # Load environment variables from .env file

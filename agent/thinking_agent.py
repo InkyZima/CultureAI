@@ -3,7 +3,14 @@ import os
 import json
 from typing import Dict, Any, Optional
 
-import google.generativeai as genai
+try:
+    # Try to import the official SDK first
+    import google.generativeai as genai
+    print("Using official Google Generative AI SDK in ThinkingAgent")
+except ImportError:
+    # Fall back to our custom wrapper for Python 3.7
+    from chat.gemini_wrapper import GeminiModule as genai
+    print("Using custom Gemini wrapper for Python 3.7 compatibility in ThinkingAgent")
 from dotenv import load_dotenv
 
 # Import database for accessing message and injection history
