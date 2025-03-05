@@ -56,12 +56,18 @@ class PlaceholderHandler:
         # Replace each placeholder with its value
         processed_template = template
         for placeholder in placeholders:
-            if placeholder in self.handlers:
+            # First check if this is a file-based placeholder
+            if placeholder.endswith('.txt'):
+                replacement = self._handle_file_placeholder(placeholder)
+            elif placeholder in self.handlers:
                 replacement = self.handlers[placeholder]()
-                processed_template = processed_template.replace(f"{{{placeholder}}}", replacement)
             else:
                 # Log unknown placeholders
                 print(f"Warning: Unknown placeholder '{placeholder}' found in template")
+                # Skip replacement
+                continue
+            
+            processed_template = processed_template.replace(f"{{{placeholder}}}", replacement)
         
         return processed_template
     
@@ -143,6 +149,22 @@ class PlaceholderHandler:
             unconsumed_injections_str = "No pending instructions."
             
         return unconsumed_injections_str
+    
+    def _handle_file_placeholder(self, placeholder: str) -> str:
+        """Return the contents of the file-based placeholder."""
+        import os
+        # Construct the correct file path in the system_prompts directory
+        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                 'system_prompts', placeholder)
+        try:
+            with open(file_path, 'r') as file:
+                return file.read()
+        except FileNotFoundError:
+            print(f"Warning: File '{file_path}' not found")
+            return f"[Content from {placeholder} not found]"
+        except Exception as e:
+            print(f"Error reading file '{file_path}': {str(e)}")
+            return f"[Error reading {placeholder}]"
 
 
 # Create a singleton instance for use throughout the application
