@@ -10,6 +10,7 @@ import json
 import re
 import datetime
 import time
+import logging
 from typing import Dict, Any, Optional, Tuple
 
 # Import the ThinkingAgent
@@ -20,6 +21,17 @@ from .tools.tools_registry import tools_registry
 
 # Import database for logging
 from database import MessageDatabase
+
+# Set up logging
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs')
+os.makedirs(log_dir, exist_ok=True)
+logger = logging.getLogger('agent_chain')
+log_file = os.path.join(log_dir, 'agent_chain.log')
+handler = logging.FileHandler(log_file)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 class AgentChain:
     """
@@ -44,10 +56,11 @@ class AgentChain:
         self.thinking_agent = ThinkingAgent(prompt_path=prompt_path)
         self.tools_registry = tools_registry
         self.db = db
+        logger.info("AgentChain initialized")
     
     def _log_agent_call(self, prompt: str, response: Dict[str, Any], latency_ms: int, error: Optional[str] = None) -> None:
         """
-        Log the agent call to the database if available.
+        Log the agent call to the database if available and to a log file.
         
         Args:
             prompt (str): The prompt sent to the agent
@@ -55,43 +68,66 @@ class AgentChain:
             latency_ms (int): Execution time in milliseconds
             error (Optional[str]): Error message if an error occurred
         """
+        # Get current timestamp with timezone information
+        local_timezone = datetime.datetime.now().astimezone().tzinfo
+        timestamp = datetime.datetime.now(local_timezone).isoformat()
+        
+        # Extract relevant information
+        model = "thinking-agent"  # This is a placeholder as we're not directly using an LLM here
+        
+        # Extract function call information if available
+        function_called = None
+        function_args = None
+        function_response = None
+        
+        if response.get("action_taken", False):
+            function_called = response.get("tool_used", "")
+            function_args = json.dumps(response.get("tool_args", {}))
+            function_response = json.dumps(response.get("tool_result", {}))
+        
+        # Log to file
+        log_message = f"Agent call executed | Timestamp: {timestamp} | Model: {model} | Latency: {latency_ms}ms"
+        if function_called:
+            log_message += f" | Tool: {function_called}"
+        if error:
+            log_message += f" | Error: {error}"
+        
+        logger.info(log_message)
+        
+        # Log prompt and response details
+        logger.info(f"Prompt: {prompt[:200]}... (truncated if longer)")
+        
+        # Log the full response
+        response_str = json.dumps(response, indent=2)
+        logger.info(f"Response: {response_str}")
+        
+        # Log to database if available
         if self.db is None:
+            logger.warning("Database not available for logging")
             return
             
         try:
-            # Extract relevant information
-            timestamp = datetime.datetime.now().isoformat()
-            model = "thinking-agent"  # This is a placeholder as we're not directly using an LLM here
+            # Log using the database's log_agent_call method
+            call_data = {
+                'timestamp': timestamp,
+                'model': model,
+                'prompt': prompt,
+                'response': response_str,
+                'function_called': function_called,
+                'function_args': function_args,
+                'function_response': function_response,
+                'error': error,
+                'latency_ms': latency_ms
+            }
             
-            # Extract function call information if available
-            function_called = None
-            function_args = None
-            function_response = None
-            
-            if response.get("action_taken", False):
-                function_called = response.get("tool_used", "")
-                function_args = json.dumps(response.get("tool_args", {}))
-                function_response = json.dumps(response.get("tool_result", {}))
-            
-            # Convert response to a string for logging
-            response_str = json.dumps(response)
-            
-            # Execute the database query
-            self.db.cursor.execute(
-                """
-                INSERT INTO agent_calls 
-                (timestamp, model, prompt, response, function_called, function_args, 
-                function_response, error, latency_ms)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (timestamp, model, prompt, response_str, function_called, 
-                 function_args, function_response, error, latency_ms)
-            )
-            self.db.connection.commit()
-            print(f"Logged agent call to database, latency: {latency_ms}ms")
+            success = self.db.log_agent_call(call_data)
+            if success:
+                logger.info(f"Successfully logged agent call to database, latency: {latency_ms}ms")
+            else:
+                logger.error("Failed to log agent call to database")
             
         except Exception as e:
-            print(f"Error logging agent call to database: {e}")
+            logger.error(f"Error logging agent call to database: {e}")
     
     def execute(self, custom_prompt: Optional[str] = None, custom_prompt_path: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -120,6 +156,11 @@ class AgentChain:
         # Track overall execution time
         overall_start_time = time.time()
         
+        # Log the start of execution
+        local_timezone = datetime.datetime.now().astimezone().tzinfo
+        start_timestamp = datetime.datetime.now(local_timezone).isoformat()
+        logger.info(f"Starting agent chain execution at {start_timestamp}")
+        
         # Main execution loop - continue until we decide not to use a tool or reach max iterations
         while current_iteration < max_iterations:
             current_iteration += 1
@@ -131,13 +172,18 @@ class AgentChain:
                 custom_prompt_path=current_prompt_path
             )
             end_time = time.time()
+            latency_ms = int((end_time - start_time) * 1000)
             decision_text = thinking_result.get("decision", "")
             
             # Log the agent call
-            self._log_agent_call(current_prompt, thinking_result, int((end_time - start_time) * 1000))
+            self._log_agent_call(
+                current_prompt if isinstance(current_prompt, str) else "[Custom prompt from file]", 
+                thinking_result, 
+                latency_ms
+            )
             
             # Add the decision to the history
-            decision_time = thinking_result.get("timestamp", datetime.datetime.now().isoformat())
+            decision_time = thinking_result.get("timestamp", datetime.datetime.now(local_timezone).isoformat())
             decision_entry = {
                 "iteration": current_iteration,
                 "timestamp": decision_time,
@@ -150,7 +196,7 @@ class AgentChain:
             
             # If the agent decides not to use a tool, break the loop
             if not tool_decision["should_use_tool"]:
-                print(f"Iteration {current_iteration}: Agent decided not to use any tools.")
+                logger.info(f"Iteration {current_iteration}: Agent decided not to use any tools.")
                 final_result = {
                     "action_taken": False,
                     "decision": decision_text,
@@ -158,7 +204,7 @@ class AgentChain:
                     "decision_history": decision_history,
                     "action_history": action_history,
                     "iterations": current_iteration,
-                    "timestamp": datetime.datetime.now().isoformat()
+                    "timestamp": datetime.datetime.now(local_timezone).isoformat()
                 }
                 break
             
@@ -167,11 +213,11 @@ class AgentChain:
             tool_args = tool_decision["tool_args"]
             
             # Log the tool execution
-            print(f"Iteration {current_iteration}: Executing tool: {tool_name} with args: {tool_args}")
+            logger.info(f"Iteration {current_iteration}: Executing tool: {tool_name} with args: {json.dumps(tool_args)}")
             
             # Execute the tool
             tool_result = self._execute_tool(tool_name, tool_args)
-            tool_execution_time = datetime.datetime.now().isoformat()
+            tool_execution_time = datetime.datetime.now(local_timezone).isoformat()
             
             # Add the action to the history
             action_entry = {
@@ -185,7 +231,7 @@ class AgentChain:
             
             # If this is the last allowed iteration, prepare the final result
             if current_iteration >= max_iterations:
-                print(f"Reached maximum iterations ({max_iterations}). Stopping execution chain.")
+                logger.warning(f"Reached maximum iterations ({max_iterations}). Stopping execution chain.")
                 final_result = {
                     "action_taken": True,
                     "tool_used": tool_name,
@@ -196,7 +242,7 @@ class AgentChain:
                     "action_history": action_history,
                     "iterations": current_iteration,
                     "max_iterations_reached": True,
-                    "timestamp": datetime.datetime.now().isoformat()
+                    "timestamp": datetime.datetime.now(local_timezone).isoformat()
                 }
                 break
                 
@@ -213,13 +259,13 @@ class AgentChain:
             final_result = {
                 "action_taken": False,
                 "error": "Execution chain completed without a final result",
-                "timestamp": datetime.datetime.now().isoformat()
+                "timestamp": datetime.datetime.now(local_timezone).isoformat()
             }
             
         # Log overall execution time
         overall_end_time = time.time()
         overall_latency_ms = int((overall_end_time - overall_start_time) * 1000)
-        print(f"Overall agent execution time: {overall_latency_ms}ms")
+        logger.info(f"Overall agent execution time: {overall_latency_ms}ms")
         
         return final_result
         
@@ -246,9 +292,8 @@ class AgentChain:
                 decision = decision_history[idx]
                 iteration = decision.get("iteration", "?")
                 decision_text = decision.get("decision", "")
-                timestamp = decision.get("timestamp", "")
                 
-                context_parts.append(f"Iteration {iteration} [{timestamp}] Decision: {decision_text}")
+                context_parts.append(f"Iteration {iteration} Decision: {decision_text}")
                 
                 # Add the corresponding action if available
                 if idx < len(action_history):
@@ -288,117 +333,127 @@ class AgentChain:
             decision_text (str): The decision text from the thinking agent
             
         Returns:
-            Dict[str, Any]: Dictionary with parsed tool information
+            Dict[str, Any]: Dictionary with the parsed decision
         """
-        # Default result with no tool
+        # Default result - no tool usage
         result = {
             "should_use_tool": False,
-            "tool_name": None,
-            "tool_args": {},
-            "reason": "No clear decision was made"
+            "reason": "No tool specified in decision"
         }
         
-        # Normalize the decision text
-        decision_text = decision_text.strip()
+        # Skip parsing if decision is empty or None
+        if not decision_text:
+            logger.warning("Empty decision text received from thinking agent")
+            return result
         
-        # Check if the decision is to use a tool (more flexible pattern matching)
-        if re.search(r'(?:^|\s)(?:[-*•]?\s*)?yes:', decision_text, re.IGNORECASE):
-            result["should_use_tool"] = True
-            
-            # Extract tool name, arguments, and reason using regex
-            # More flexible pattern that can handle variations in formatting
-            
-            # Check for inject_instruction tool
-            inject_match = re.search(r"inject_instruction tool with (?:instruction|message) ['\[](.*?)['|\]] because (.*)", decision_text, re.IGNORECASE)
-            if inject_match:
-                result["tool_name"] = "inject_instruction"
-                result["tool_args"] = {"instruction": inject_match.group(1)}
-                result["reason"] = inject_match.group(2)
+        # Log the decision text we're parsing
+        logger.debug(f"Parsing decision text: {decision_text[:100]}... (truncated)")
+        
+        # Try to match a tool name and its arguments
+        tool_match = re.search(r"USE_TOOL\s*\[([^\]]+)\]\s*\{([^}]*)\}", decision_text, re.DOTALL)
+        
+        if not tool_match:
+            # No tool usage pattern found, look for explicit rejection
+            if "DO_NOT_USE_TOOL" in decision_text:
+                result["reason"] = "Agent explicitly decided not to use a tool"
+                logger.info("Agent explicitly decided not to use a tool")
+            else:
+                result["reason"] = "No valid tool specification found in decision"
+                logger.warning("No valid tool specification found in decision")
+            return result
+        
+        # Extract tool name and args string
+        tool_name = tool_match.group(1).strip()
+        args_str = tool_match.group(2).strip()
+        
+        # Validate that the tool exists in our registry
+        if tool_name not in self.tools_registry:
+            result["reason"] = f"Tool '{tool_name}' not found in registry"
+            logger.error(f"Tool '{tool_name}' not found in registry")
+            return result
+        
+        # Parse the arguments - they should be in the format key1=value1, key2=value2, etc.
+        tool_args = {}
+        if args_str:
+            try:
+                # First attempt to parse as JSON
+                try:
+                    tool_args = json.loads(args_str)
+                    logger.debug(f"Parsed tool args as JSON: {json.dumps(tool_args)}")
+                except json.JSONDecodeError:
+                    # Fall back to manual parsing
+                    for arg_pair in re.findall(r'([^=,]+)=([^,]+)(?:,|$)', args_str):
+                        key = arg_pair[0].strip()
+                        value = arg_pair[1].strip()
+                        
+                        # Try to parse value as JSON if it looks like a data structure
+                        if value.startswith('[') or value.startswith('{') or value.lower() in ['true', 'false', 'null'] or re.match(r'^-?\d+(\.\d+)?$', value):
+                            try:
+                                value = json.loads(value)
+                            except json.JSONDecodeError:
+                                # Keep as string if JSON parsing fails
+                                pass
+                        
+                        tool_args[key] = value
+                    logger.debug(f"Parsed tool args manually: {json.dumps(tool_args)}")
+            except Exception as e:
+                logger.error(f"Error parsing tool arguments: {e}")
+                result["reason"] = f"Error parsing tool arguments: {e}"
                 return result
-            
-            # Check for send_notification tool - more flexible pattern
-            notify_match = re.search(r"send_notification tool with (?:message|notification) ['\[](.*?)['|\]] because (.*)", decision_text, re.IGNORECASE)
-            if notify_match:
-                result["tool_name"] = "send_notification"
-                result["tool_args"] = {"message": notify_match.group(1)}
-                result["reason"] = notify_match.group(2)
-                return result
-            
-            # Generic pattern for any tool as a fallback
-            generic_match = re.search(r"(?:use|call) the (\w+) tool with (?:\w+) ['\[](.*?)['|\]] because (.*)", decision_text, re.IGNORECASE)
-            if generic_match:
-                tool_name = generic_match.group(1).lower()
-                
-                # Map to proper tool names if there's slight variation
-                if "notification" in tool_name:
-                    tool_name = "send_notification"
-                    arg_name = "message"
-                elif "inject" in tool_name or "instruction" in tool_name:
-                    tool_name = "inject_instruction"
-                    arg_name = "instruction"
-                else:
-                    # Default for unknown tools
-                    arg_name = "value"
-                
-                result["tool_name"] = tool_name
-                result["tool_args"] = {arg_name: generic_match.group(2)}
-                result["reason"] = generic_match.group(3)
-                return result
         
-        # If decision is not to use a tool
-        elif re.search(r'(?:^|\s)(?:[-*•]?\s*)?no:', decision_text, re.IGNORECASE):
-            # Extract reason - more flexible pattern
-            reason_match = re.search(r"no:\s*(.*)", decision_text, re.IGNORECASE)
-            if reason_match:
-                result["reason"] = reason_match.group(1)
+        # Return the successful parsing result
+        result = {
+            "should_use_tool": True,
+            "tool_name": tool_name,
+            "tool_args": tool_args
+        }
         
-        # Log the parsing attempt to help with debugging
-        if not result["should_use_tool"] and not result["reason"] == "No clear decision was made":
-            print(f"Parsed decision: No tool use. Reason: {result['reason']}")
-        elif not result["should_use_tool"]:
-            print(f"Failed to parse decision clearly: {decision_text[:100]}...")
-        
+        logger.info(f"Successfully parsed decision to use tool: {tool_name}")
         return result
     
-    def _execute_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> Any:
         """
-        Execute a tool with the given name and arguments.
+        Execute a tool from the tools registry.
         
         Args:
-            tool_name (str): The name of the tool to execute
-            tool_args (Dict[str, Any]): The arguments for the tool
+            tool_name (str): Name of the tool to execute
+            tool_args (Dict[str, Any]): Arguments to pass to the tool
             
         Returns:
-            Dict[str, Any]: The result of the tool execution
+            Any: The result returned by the tool
         """
+        start_time = time.time()
+        
         try:
             # Get the tool function from the registry
-            tool_function = self.tools_registry.get_tool(tool_name)
+            tool_fn = self.tools_registry.get(tool_name)
             
-            if not tool_function:
-                return {
-                    "success": False,
-                    "error": f"Tool not found: {tool_name}"
-                }
+            if not tool_fn:
+                error_msg = f"Tool '{tool_name}' not found in registry"
+                logger.error(error_msg)
+                return {"error": error_msg}
             
-            # Execute the tool
-            result_str = tool_function(**tool_args)
+            # Log tool execution
+            logger.info(f"Executing tool: {tool_name} with args: {json.dumps(tool_args)}")
             
-            # Parse the JSON result
-            try:
-                result = json.loads(result_str)
-                return result
-            except json.JSONDecodeError:
-                return {
-                    "success": False,
-                    "error": f"Tool returned invalid JSON: {result_str}"
-                }
+            # Execute the tool with the provided arguments
+            result = tool_fn(**tool_args)
+            
+            # Calculate and log execution time
+            end_time = time.time()
+            execution_time_ms = int((end_time - start_time) * 1000)
+            logger.info(f"Tool {tool_name} executed in {execution_time_ms}ms")
+            
+            # Return the result
+            return result
             
         except Exception as e:
-            return {
-                "success": False,
-                "error": f"Error executing tool {tool_name}: {str(e)}"
-            }
+            # Log and return any errors that occur during execution
+            end_time = time.time()
+            execution_time_ms = int((end_time - start_time) * 1000)
+            error_msg = f"Error executing tool '{tool_name}': {str(e)}"
+            logger.error(f"{error_msg} (execution time: {execution_time_ms}ms)")
+            return {"error": error_msg}
 
 
 if __name__ == "__main__":

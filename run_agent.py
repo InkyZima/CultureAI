@@ -20,6 +20,7 @@ import os
 import argparse
 from agent.agent_chain import AgentChain
 from agent.placeholder_handler import process_template
+from database import MessageDatabase
 
 def print_with_highlights(title, content):
     """Print content with highlighted title."""
@@ -58,9 +59,13 @@ def run_agent_chain(prompt=None, template_path=None):
         template_path (str, optional): Path to a template file with placeholders.
             If provided, the template will be processed for placeholders.
     """
-    # Initialize the agent chain
+    # Initialize the database
+    print("Initializing Database...")
+    db = MessageDatabase()
+    
+    # Initialize the agent chain with the database
     print("Initializing Agent Chain...")
-    agent_chain = AgentChain()
+    agent_chain = AgentChain(db=db)
     print("Executing agent chain...")
 
     # Use provided prompt, template, or default example prompt
