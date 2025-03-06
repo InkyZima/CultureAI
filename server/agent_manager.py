@@ -50,9 +50,12 @@ class AgentManager:
             print(f"Action taken: {result.get('action_taken', False)}")
             
             # Add a system message to inform the user
+            # Get current time with timezone information
+            current_time = datetime.datetime.now().astimezone()
+            
             system_message = {
                 'message': f"Agent chain executed with prompt: '{agent_prompt}'",
-                'timestamp': datetime.datetime.now().isoformat(),
+                'timestamp': current_time.isoformat(),
                 'role': 'System'
             }
             self.message_manager.add_message(system_message)
@@ -64,7 +67,7 @@ class AgentManager:
             # Send the agent's response back to the user
             agent_response = {
                 'message': agent_response_message,
-                'timestamp': datetime.datetime.now().isoformat(),
+                'timestamp': current_time.isoformat(),
                 'role': 'Agent-AI'
             }
             self.message_manager.add_message(agent_response)
@@ -72,11 +75,18 @@ class AgentManager:
             
             return True
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
             error_message = f"Error running agent chain: {str(e)}"
             print(error_message)
+            print(f"Detailed traceback:\n{error_details}")
+            
+            # Get current time with timezone information
+            current_time = datetime.datetime.now().astimezone()
+            
             system_message = {
                 'message': error_message,
-                'timestamp': datetime.datetime.now().isoformat(),
+                'timestamp': current_time.isoformat(),
                 'role': 'System'
             }
             self.message_manager.add_message(system_message)
@@ -157,11 +167,39 @@ class AgentManager:
             
             # Add tool result information if available
             tool_result = first_action.get('tool_result', {})
-            if tool_result.get('success', True):
-                agent_response_message += "\nThe operation was successful."
+            
+            # Handle different result types (dict, string, or other)
+            if isinstance(tool_result, dict):
+                if tool_result.get('success', True):
+                    agent_response_message += "\nThe operation was successful."
+                else:
+                    error = tool_result.get('error', 'unknown error')
+                    agent_response_message += f"\nHowever, there was an issue: {error}"
+            elif isinstance(tool_result, str):
+                # Try to parse the string as JSON
+                try:
+                    import json
+                    json_result = json.loads(tool_result)
+                    if isinstance(json_result, dict) and json_result.get('success', True):
+                        agent_response_message += "\nThe operation was successful."
+                    elif isinstance(json_result, dict):
+                        error = json_result.get('error', 'unknown error')
+                        agent_response_message += f"\nHowever, there was an issue: {error}"
+                    else:
+                        # If not a dict with success/error keys, just truncate and display the string
+                        if len(tool_result) > 100:
+                            agent_response_message += f"\nResult: {tool_result[:100]}..."
+                        else:
+                            agent_response_message += f"\nResult: {tool_result}"
+                except (json.JSONDecodeError, TypeError):
+                    # If not valid JSON, just truncate and display the string
+                    if len(tool_result) > 100:
+                        agent_response_message += f"\nResult: {tool_result[:100]}..."
+                    else:
+                        agent_response_message += f"\nResult: {tool_result}"
             else:
-                error = tool_result.get('error', 'unknown error')
-                agent_response_message += f"\nHowever, there was an issue: {error}"
+                # For other types, convert to string
+                agent_response_message += f"\nResult: {str(tool_result)}"
         else:
             # If no action was taken, get the reason
             reason = result.get('reason', "No specific reason was provided.")

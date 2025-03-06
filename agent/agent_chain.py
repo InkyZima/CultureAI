@@ -11,7 +11,7 @@ import re
 import datetime
 import time
 import logging
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 
 # Import the ThinkingAgent
 from .thinking_agent import ThinkingAgent
@@ -269,13 +269,13 @@ class AgentChain:
         
         return final_result
         
-    def _format_history_for_next_iteration(self, decision_history: list, action_history: list) -> str:
+    def _format_history_for_next_iteration(self, decision_history: List[Dict[str, Any]], action_history: List[Dict[str, Any]]) -> str:
         """
-        Format the decision and action history into a context string for the next iteration.
+        Format the decision and action history into a readable format for the next iteration
         
         Args:
-            decision_history (list): List of previous decisions
-            action_history (list): List of previous actions and their results
+            decision_history (List[Dict]): History of decisions made by the thinking agent
+            action_history (List[Dict]): History of actions taken
             
         Returns:
             str: Formatted context history string
@@ -306,16 +306,28 @@ class AgentChain:
                     context_parts.append(f"Iteration {iteration} Tool executed: {tool_name}({args_str})")
                     
                     # Add a summary of the tool result
-                    if tool_result.get("success", False):
-                        if tool_name == "send_notification":
-                            context_parts.append(f"Result: Notification sent successfully")
-                        elif tool_name == "inject_instruction":
-                            context_parts.append(f"Result: Instruction injected successfully")
+                    # Handle different result types (dict, string, or other)
+                    if isinstance(tool_result, dict):
+                        if tool_result.get("success", False):
+                            if tool_name == "send_notification":
+                                context_parts.append(f"Result: Notification sent successfully")
+                            elif tool_name == "inject_instruction":
+                                context_parts.append(f"Result: Instruction injected successfully")
+                            else:
+                                context_parts.append(f"Result: Tool execution successful")
                         else:
-                            context_parts.append(f"Result: Tool execution successful")
+                            error = tool_result.get("error", "Unknown error")
+                            context_parts.append(f"Result: Tool execution failed - {error}")
+                    elif isinstance(tool_result, str):
+                        # For string results, display the string directly
+                        # Truncate if it's too long
+                        if len(tool_result) > 100:
+                            context_parts.append(f"Result: {tool_result[:100]}...")
+                        else:
+                            context_parts.append(f"Result: {tool_result}")
                     else:
-                        error = tool_result.get("error", "Unknown error")
-                        context_parts.append(f"Result: Tool execution failed - {error}")
+                        # For other types, convert to string
+                        context_parts.append(f"Result: {str(tool_result)}")
                 
                 context_parts.append("")  # Empty line between iterations
         
@@ -349,67 +361,138 @@ class AgentChain:
         # Log the decision text we're parsing
         logger.debug(f"Parsing decision text: {decision_text[:100]}... (truncated)")
         
-        # Try to match a tool name and its arguments
+        # First, try to match the structured format: USE_TOOL[tool_name]{args}
         tool_match = re.search(r"USE_TOOL\s*\[([^\]]+)\]\s*\{([^}]*)\}", decision_text, re.DOTALL)
         
-        if not tool_match:
-            # No tool usage pattern found, look for explicit rejection
-            if "DO_NOT_USE_TOOL" in decision_text:
-                result["reason"] = "Agent explicitly decided not to use a tool"
-                logger.info("Agent explicitly decided not to use a tool")
-            else:
-                result["reason"] = "No valid tool specification found in decision"
-                logger.warning("No valid tool specification found in decision")
-            return result
-        
-        # Extract tool name and args string
-        tool_name = tool_match.group(1).strip()
-        args_str = tool_match.group(2).strip()
-        
-        # Validate that the tool exists in our registry
-        if tool_name not in self.tools_registry:
-            result["reason"] = f"Tool '{tool_name}' not found in registry"
-            logger.error(f"Tool '{tool_name}' not found in registry")
-            return result
-        
-        # Parse the arguments - they should be in the format key1=value1, key2=value2, etc.
-        tool_args = {}
-        if args_str:
-            try:
-                # First attempt to parse as JSON
-                try:
-                    tool_args = json.loads(args_str)
-                    logger.debug(f"Parsed tool args as JSON: {json.dumps(tool_args)}")
-                except json.JSONDecodeError:
-                    # Fall back to manual parsing
-                    for arg_pair in re.findall(r'([^=,]+)=([^,]+)(?:,|$)', args_str):
-                        key = arg_pair[0].strip()
-                        value = arg_pair[1].strip()
-                        
-                        # Try to parse value as JSON if it looks like a data structure
-                        if value.startswith('[') or value.startswith('{') or value.lower() in ['true', 'false', 'null'] or re.match(r'^-?\d+(\.\d+)?$', value):
-                            try:
-                                value = json.loads(value)
-                            except json.JSONDecodeError:
-                                # Keep as string if JSON parsing fails
-                                pass
-                        
-                        tool_args[key] = value
-                    logger.debug(f"Parsed tool args manually: {json.dumps(tool_args)}")
-            except Exception as e:
-                logger.error(f"Error parsing tool arguments: {e}")
-                result["reason"] = f"Error parsing tool arguments: {e}"
+        if tool_match:
+            # Parse the structured format
+            tool_name = tool_match.group(1).strip()
+            args_str = tool_match.group(2).strip()
+            
+            # Validate that the tool exists in our registry
+            if tool_name not in self.tools_registry:
+                result["reason"] = f"Tool '{tool_name}' not found in registry"
+                logger.error(f"Tool '{tool_name}' not found in registry")
                 return result
+            
+            # Parse the arguments
+            tool_args = self._parse_tool_args(args_str)
+            
+            # Return the successful parsing result
+            result = {
+                "should_use_tool": True,
+                "tool_name": tool_name,
+                "tool_args": tool_args
+            }
+            
+            logger.info(f"Successfully parsed decision to use tool: {tool_name} (structured format)")
+            return result
         
-        # Return the successful parsing result
-        result = {
-            "should_use_tool": True,
-            "tool_name": tool_name,
-            "tool_args": tool_args
-        }
+        # If structured format didn't match, try the natural language format:
+        # "Yes: Call the send_notification tool with message 'value' because reason"
+        # "Yes: Call the inject_instruction tool with instruction 'value' because reason"
         
-        logger.info(f"Successfully parsed decision to use tool: {tool_name}")
+        # Check if the decision starts with "Yes:" indicating intent to use a tool
+        if re.search(r'^\s*yes\s*:', decision_text, re.IGNORECASE):
+            # Try to extract the tool name and parameters
+            
+            # First check for send_notification tool
+            notification_match = re.search(
+                r"call\s+the\s+send_notification\s+tool\s+with\s+(?:message|notification)\s+['\"](.*?)['\"]", 
+                decision_text, 
+                re.IGNORECASE
+            )
+            if notification_match:
+                message = notification_match.group(1).strip()
+                tool_args = {"message": message}
+                
+                result = {
+                    "should_use_tool": True,
+                    "tool_name": "send_notification",
+                    "tool_args": tool_args
+                }
+                
+                logger.info(f"Successfully parsed decision to use tool: send_notification (natural language format)")
+                return result
+            
+            # Then check for inject_instruction tool
+            instruction_match = re.search(
+                r"call\s+the\s+inject_instruction\s+tool\s+with\s+(?:instruction|message)\s+['\"](.*?)['\"]", 
+                decision_text, 
+                re.IGNORECASE
+            )
+            if instruction_match:
+                instruction = instruction_match.group(1).strip()
+                tool_args = {"instruction": instruction}
+                
+                result = {
+                    "should_use_tool": True,
+                    "tool_name": "inject_instruction",
+                    "tool_args": tool_args
+                }
+                
+                logger.info(f"Successfully parsed decision to use tool: inject_instruction (natural language format)")
+                return result
+            
+            # If we got here with a 'Yes:' decision but couldn't extract tool details, log a warning
+            logger.warning(f"Found 'Yes:' in decision but couldn't extract tool details: {decision_text[:100]}...")
+            result["reason"] = "Couldn't parse tool details from 'Yes:' decision"
+        
+        # Check for explicit decision not to use tools
+        if "DO_NOT_USE_TOOL" in decision_text or re.search(r'^\s*no\s*:', decision_text, re.IGNORECASE):
+            result["reason"] = "Agent explicitly decided not to use a tool"
+            logger.info("Agent explicitly decided not to use a tool")
+            return result
+            
+        # If no pattern matched, log a warning and return the default 'no tool' result
+        logger.warning("No valid tool specification found in decision")
         return result
+    
+    def _parse_tool_args(self, args_str: str) -> Dict[str, Any]:
+        """
+        Parse tool arguments from a string format.
+        
+        Args:
+            args_str (str): String containing tool arguments
+            
+        Returns:
+            Dict[str, Any]: Dictionary of parsed arguments
+        """
+        tool_args = {}
+        if not args_str:
+            return tool_args
+            
+        try:
+            # First attempt to parse as JSON
+            try:
+                tool_args = json.loads(args_str)
+                logger.debug(f"Parsed tool args as JSON: {json.dumps(tool_args)}")
+                return tool_args
+            except json.JSONDecodeError:
+                # Fall back to manual parsing
+                for arg_pair in re.findall(r'([^=,]+)=([^,]+)(?:,|$)', args_str):
+                    key = arg_pair[0].strip()
+                    value = arg_pair[1].strip()
+                    
+                    # Try to parse value as JSON if it looks like a data structure
+                    if value.startswith('[') or value.startswith('{') or value.lower() in ['true', 'false', 'null'] or re.match(r'^-?\d+(\.\d+)?$', value):
+                        try:
+                            value = json.loads(value)
+                        except json.JSONDecodeError:
+                            # Keep as string if JSON parsing fails
+                            pass
+                    
+                    # Remove surrounding quotes if present
+                    if isinstance(value, str) and len(value) >= 2:
+                        if (value.startswith('"') and value.endswith('"')) or (value.startswith('\'') and value.endswith('\'')):
+                            value = value[1:-1]
+                    
+                    tool_args[key] = value
+                logger.debug(f"Parsed tool args manually: {json.dumps(tool_args)}")
+                return tool_args
+        except Exception as e:
+            logger.error(f"Error parsing tool arguments: {e}")
+            return {}
     
     def _execute_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> Any:
         """
@@ -425,8 +508,8 @@ class AgentChain:
         start_time = time.time()
         
         try:
-            # Get the tool function from the registry
-            tool_fn = self.tools_registry.get(tool_name)
+            # Get the tool function from the registry using get_tool method
+            tool_fn = self.tools_registry.get_tool(tool_name)
             
             if not tool_fn:
                 error_msg = f"Tool '{tool_name}' not found in registry"
